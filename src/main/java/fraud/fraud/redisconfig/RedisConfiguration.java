@@ -1,5 +1,8 @@
 package fraud.fraud.redisconfig;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import fraud.fraud.DTO.TransactionRequest;
 import org.springframework.boot.autoconfigure.cache.RedisCacheManagerBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
@@ -16,6 +19,12 @@ import java.time.Duration;
 public class RedisConfiguration {
 
     @Bean
+    public ObjectMapper objectMapper() {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new JavaTimeModule());
+        return mapper;
+    }
+    @Bean
     public RedisCacheConfiguration cacheConfiguration() {
         return RedisCacheConfiguration.defaultCacheConfig()
                 .entryTtl(Duration.ofMinutes(60))
@@ -30,16 +39,22 @@ public class RedisConfiguration {
 
     }
     @Bean
-    RedisTemplate<String, TransactionRequest> redisTemplate(RedisConnectionFactory redisConnectionFactory) {
-        RedisTemplate<String, TransactionRequest> redisTemplate = new RedisTemplate<>();
-        redisTemplate.setConnectionFactory(redisConnectionFactory);
+    RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory redisConnectionFactory, ObjectMapper objectMapper) {
 
-        GenericJackson2JsonRedisSerializer serializer = new GenericJackson2JsonRedisSerializer();
+        objectMapper.registerModule(new JavaTimeModule());
+        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+
+        RedisTemplate<String, Object> redisTemplate = new RedisTemplate<>();
+        redisTemplate.setConnectionFactory(redisConnectionFactory);
+        GenericJackson2JsonRedisSerializer serializer = new GenericJackson2JsonRedisSerializer(objectMapper);
         redisTemplate.setDefaultSerializer(serializer);
         redisTemplate.setKeySerializer(redisTemplate.getStringSerializer());
         redisTemplate.setHashKeySerializer(redisTemplate.getStringSerializer());
         redisTemplate.setValueSerializer(serializer);
         redisTemplate.setHashValueSerializer(serializer);
+        redisTemplate.afterPropertiesSet();// this is required when creating a custom redis template
+
+        redisTemplate.expire("id",Duration.ofMinutes(10));// for ttl
 
         return redisTemplate;
     }

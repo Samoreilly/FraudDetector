@@ -1,8 +1,11 @@
 package fraud.fraud.DTO;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class TransactionRequest implements Serializable {
 
     public String id;
