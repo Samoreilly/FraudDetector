@@ -13,7 +13,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
-public class Transactions {
+public class Transactions{
 
     private final TransactionService transactionService;
 
@@ -27,6 +27,6 @@ public class Transactions {
         Map<String, String> userData = new HashMap<>();
 
         userData.put(transactionInfo.getId(), transactionInfo.getData());
-        return transactionService.transactionPipeline(userData);
+        return transactionService.transactionPipeline(transactionInfo);
     }
 }
