@@ -9,5 +9,9 @@ public class KafkaTopics {
         return TopicBuilder.name("transactions")
                 .build();
     }
+    public NewTopic resultTopic(){
+        return TopicBuilder.name("out-transactions")
+                .build();
+    }
 
 }
