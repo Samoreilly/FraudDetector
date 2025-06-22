@@ -40,7 +40,6 @@ public class TransactionController {
         String key = "rate_limit:ip" + ip;
         String id = session.getId();
 
-        // Force session creation if it doesn't exist
         if (session.isNew()) {
             session.setAttribute("created", System.currentTimeMillis());
         }
@@ -58,7 +57,6 @@ public class TransactionController {
 
     @GetMapping("/streams/results")
     public SseEmitter streamResults(HttpSession session) {
-        // Force session creation if it doesn't exist
         if (session.isNew()) {
             session.setAttribute("created", System.currentTimeMillis());
         }
@@ -70,7 +68,6 @@ public class TransactionController {
 
     @GetMapping()
     public Map<String, String> getSessionId(HttpSession session) {
-        // Force session creation if it doesn't exist
         if (session.isNew()) {
             session.setAttribute("created", System.currentTimeMillis());
         }
