@@ -32,27 +32,27 @@ This project implements a real-time fraud detection backend service using Spring
 ```bash
 cd ~/kafka/kafka_2.13-3.9.1
 ```
-# Generate a UUID (copy the output UUID for the next step)
+### Generate a UUID
 ```bash
 bin/kafka-storage.sh random-uuid
 ```
 
-# Format the storage using your UUID (replace <YOUR_UUID_HERE> with the generated UUID)
+### Format the storage using your UUID
 ```bash
 bin/kafka-storage.sh format -t <YOUR_UUID_HERE> -c config/kraft/server.properties
 ```
 
-# Start the Kafka server
+### Start the Kafka server
 ```bash
 bin/kafka-server-start.sh config/kraft/server.properties
 ```
 
-# Redis setup
+### Redis setup
 ```bash
 Run redis-cli in bash
 ```
 
-# Application.properties
+### Application.properties
 ```bash
 spring.application.name=FraudDetector
 spring.kafka.bootstrap-servers=localhost:9092
@@ -66,7 +66,7 @@ logging.level.org.springframework.data.redis.cache=DEBUG
 
 spring.jackson.serialization.write-dates-as-timestamps=false
 ```
-# How It Works
+## How It Works
 
 - Client submits transactions via /api/tr.
 - The transaction is sent to Kafka "transactions" topic asynchronously.
