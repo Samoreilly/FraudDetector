@@ -5,39 +5,41 @@ This project implements a real-time fraud detection backend service using Spring
 
 # Features
 
-Asynchronous transaction processing via Kafka topics.
-Redis based caching of recent user transactions with automatic expiry.
-Transaction spam prevention by allowing 1 transaction every 5 seconds.
-Rate limiting based by client IP and session.
-Real-time transaction status updates via Kafka and SSE.
-Session management and client IP tracking for enhanced fraud prevention.
+- Asynchronous transaction processing via Kafka topics.
+- Redis based caching of recent user transactions with automatic expiry.
+- Transaction spam prevention by allowing 1 transaction every 5 seconds.
+- Rate limiting based by client IP and session.
+- Real-time transaction status updates via Kafka and SSE.
+- Session management and client IP tracking for enhanced fraud prevention.
 
 # Tech stack
-Java 17+ 
-Spring Boot
-Apache Kafka
-Redis via Spring Data Redis
-Jackson JSON serialization
-Server side events for realtime updates
+- Java 17+ 
+- Spring Boot
+- Apache Kafka
+- Redis via Spring Data Redis
+- Jackson JSON serialization
+- Server side events for realtime updates
 
 # Prerequisites
-Java Development Kit (JDK) 17 or later
-Apache Kafka (https://kafka.apache.org/downloads)
-Redis Server (sudo apt install redis-server) or through App center if your on Ubuntu Linux
-Maven or Gradle build tool
+- Java Development Kit (JDK) 17 or later
+- Apache Kafka (https://kafka.apache.org/downloads)
+- Redis Server (sudo apt install redis-server) or through App center if your on Ubuntu Linux
+- Maven or Gradle build tool
 
 # Kafka setup
 
-- Go into your kafka directory
+# Go into your Kafka directory
 cd ~/kafka/kafka_2.13-3.9.1
-- Generate a UUID
+
+# Generate a UUID (copy the output UUID for the next step)
 bin/kafka-storage.sh random-uuid
 
-- Paste your UUID here
-bin/kafka-storage.sh format -t ..YOUR UUID HERE.. -c config/kraft/server.properties
+# Format the storage using your UUID (replace <YOUR_UUID_HERE> with the generated UUID)
+bin/kafka-storage.sh format -t <YOUR_UUID_HERE> -c config/kraft/server.properties
 
-- Start server
+# Start the Kafka server
 bin/kafka-server-start.sh config/kraft/server.properties
+
 
 # Redis setup
 
