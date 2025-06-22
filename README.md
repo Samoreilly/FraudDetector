@@ -28,7 +28,7 @@ This project implements a real-time fraud detection backend service using Spring
 ## Kafka setup
 
 
-# Go into your Kafka directory
+### Go into your Kafka directory
 ```bash
 cd ~/kafka/kafka_2.13-3.9.1
 ```
