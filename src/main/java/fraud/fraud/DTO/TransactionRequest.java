@@ -12,6 +12,7 @@ public class TransactionRequest implements Serializable {
     public String data;
     public LocalDateTime time;
     public String clientIp;
+    public String result;
 
     public String getId() {
         return id;
@@ -40,13 +41,22 @@ public class TransactionRequest implements Serializable {
         this.clientIp = clientIp;
     }
 
+    public String getResult() {
+        return result;
+    }
+
+    public void setResult(String result) {
+        this.result = result;
+    }
+
     public TransactionRequest() {
 
     }
-    public TransactionRequest(String id, String data, LocalDateTime time, String clientIp) {
+    public TransactionRequest(String id, String data, LocalDateTime time, String clientIp, String result) {
         this.id = id;
         this.data = data;
         this.time = time;
         this.clientIp = clientIp;
+        this.result = result;
     }
 }
