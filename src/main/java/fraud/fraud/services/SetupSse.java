@@ -18,7 +18,7 @@ public class SetupSse {
     private final Map<String, SseEmitter> userEmitter = new ConcurrentHashMap<>();
 
     public SseEmitter streamResults(HttpSession session) {
-        SseEmitter emitter = new SseEmitter(Long.MAX_VALUE); // Set longer timeout
+        SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
         String sessionId = session.getId();
 
         System.out.println("Setting up SSE for session: " + sessionId);
@@ -33,7 +33,6 @@ public class SetupSse {
             userEmitter.remove(sessionId);
         }
 
-        // Handle cleanup when connection is closed
         emitter.onCompletion(() -> {
             System.out.println("SSE connection completed for session: " + sessionId);
             userEmitter.remove(sessionId);
