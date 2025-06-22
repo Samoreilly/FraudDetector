@@ -1,33 +1,33 @@
 # Real-Time Fraud Detection Service
 
-# Overview
+## Overview
 This project implements a real-time fraud detection backend service using Spring Boot, Kafka, and Redis. It processes user transactions asynchronously via Kafka, caches recent transactions in Redis to enable temporal validation, and provides real-time status updates to clients using Server-Sent Events (SSE).
 
-# Features
-
+## Features
 - Asynchronous transaction processing via Kafka topics.
 - Redis based caching of recent user transactions with automatic expiry.
 - Transaction spam prevention by allowing 1 transaction every 5 seconds.
-- Rate limiting based by client IP and session.
+- Rate limiting based on client IP and session.
 - Real-time transaction status updates via Kafka and SSE.
 - Session management and client IP tracking for enhanced fraud prevention.
 
-# Tech stack
-- Java 17+ 
+## Tech stack
+- Java 17+
 - Spring Boot
 - Apache Kafka
 - Redis via Spring Data Redis
 - Jackson JSON serialization
 - Server side events for realtime updates
 
-# Prerequisites
+## Prerequisites
 - Java Development Kit (JDK) 17 or later
-- Apache Kafka (https://kafka.apache.org/downloads)
-- Redis Server (sudo apt install redis-server) or through App center if your on Ubuntu Linux
+- Apache Kafka ([https://kafka.apache.org/downloads](https://kafka.apache.org/downloads))
+- Redis Server (`sudo apt install redis-server`) or through App center if you’re on Ubuntu Linux
 - Maven or Gradle build tool
 
-# Kafka setup
+## Kafka setup
 
+```bash
 # Go into your Kafka directory
 cd ~/kafka/kafka_2.13-3.9.1
 
@@ -41,6 +41,7 @@ bin/kafka-storage.sh format -t <YOUR_UUID_HERE> -c config/kraft/server.propertie
 bin/kafka-server-start.sh config/kraft/server.properties
 
 
+```bash
 # Redis setup
 
 Run redis-cli in bash
