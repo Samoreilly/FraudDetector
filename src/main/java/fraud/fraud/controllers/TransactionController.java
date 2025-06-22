@@ -49,7 +49,8 @@ public class TransactionController {
 
         if (rateLimiting.isAllowed(key)) {
             transactionInfo.setClientIp(ip);
-            kafkaTemplate.send("out-transactions", id, transactionInfo);//THIS SHOULD BE IN SERVICE NOT HERE.. FIX SOON
+            transactionInfo.setId(id);
+            kafkaTemplate.send("transactions",transactionInfo);//THIS SHOULD BE IN SERVICE NOT HERE.. FIX SOON
             return ResponseEntity.accepted().body("Transaction submitted");
         } else {
             throw new RateLimitExceededException(ErrorMessages.RATE_LIMIT_EXCEEDED);

@@ -30,7 +30,8 @@ public class TransactionService {
     }
 
     public boolean checkTimestamps(TransactionRequest userData, List<TransactionRequest> validateTimes){
-
+        userData.setResult("Validating your transaction for fraud");
+        kafkaTemplate.send("out-transactions", userData.getId(), userData);
         if(validateTimes == null || validateTimes.isEmpty()){
             return true;
         }
@@ -41,7 +42,8 @@ public class TransactionService {
     public List<TransactionRequest> getTransactions(TransactionRequest userData){ // passes into transaction of type TransactionRequest
         String key = userData.getId();
         Long size = redisTemplate.opsForList().size(key);
-
+        userData.setResult("Reading from cached previous transactions");
+        kafkaTemplate.send("out-transactions", userData.getId(), userData);
         List<Object> transactions = redisTemplate.opsForList().range(userData.getId(),0,-1);//gets userdata by id by looking from start to end of list
         if(transactions == null){
             return null;
@@ -68,11 +70,15 @@ public class TransactionService {
     }
     @KafkaListener(topics = "transactions", groupId = "in-transactions", containerFactory = "factory")
     public void transactionPipeline(@Payload TransactionRequest userData){
+        userData.setResult("Processing your transaction");
+        kafkaTemplate.send("out-transactions", userData.getId(), userData);
         System.out.println(userData);
         //getTransactions(userData);//retrieve users transactions as a list
         List<TransactionRequest> transactions = getTransactions(userData);
 
         if(!checkTimestamps(userData, transactions)){
+            userData.setResult("Too many transactions.. retry again in 5 seconds");
+            kafkaTemplate.send("out-transactions",userData.getId(), userData);
             System.out.println("sent too early");
             return;
         }
@@ -82,12 +88,15 @@ public class TransactionService {
     }
     public void saveTransaction(TransactionRequest userData){
         redisTemplate.opsForList().leftPush(userData.getId(), userData);
-        userData.setResult("Successful");
+
         try {
-            kafkaTemplate.send("out-transactions", userData);
+            userData.setResult("Successful");
+            kafkaTemplate.send("out-transactions",userData.getId(), userData);
             System.out.println("Transaction sent successfully");
         } catch (Exception e) {
             System.err.println("Failed to send transaction: " + e.getMessage());
+            userData.setResult("Error processing transaction");
+            kafkaTemplate.send("out-transactions",userData.getId(), userData);
         }
     }
 }
