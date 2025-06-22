@@ -2,7 +2,12 @@ package fraud.fraud.services;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import fraud.fraud.DTO.TransactionRequest;
+import fraud.fraud.ErrorMessages;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -28,7 +33,7 @@ public class TransactionService {
             return true;
         }
         Duration duration = Duration.between(validateTimes.getFirst().getTime(),userData.getTime());
-        return duration.getSeconds() >= 40;
+        return duration.getSeconds() >= 5;
     }
 
     public List<TransactionRequest> getTransactions(TransactionRequest userData){ // passes into transaction of type TransactionRequest
@@ -60,23 +65,22 @@ public class TransactionService {
         return tx;
 
     }
-
-    public Map<String, String> transactionPipeline(TransactionRequest userData){
+    @KafkaListener(topics = "transactions", groupId = "in-transactions", containerFactory = "factory")
+    public void transactionPipeline(@Payload TransactionRequest userData){
+        System.out.println(userData);
         //getTransactions(userData);//retrieve users transactions as a list
         List<TransactionRequest> transactions = getTransactions(userData);
 
         if(!checkTimestamps(userData, transactions)){
             System.out.println("sent too early");
-            return Map.of("Error", "Transaction sent too early");
+            return;
         }
         saveTransaction(userData);//save transaction
-        Map<String, String> result = new HashMap<>();
-        result.put(userData.getId(), userData.getData());
         System.out.println("Cached");
 
-        return result;
+        return;
     }
     public void saveTransaction(TransactionRequest userData){
-        redisTemplate.opsForList().leftPush(userData.getId(),userData);
+        redisTemplate.opsForList().leftPush(userData.getId(), userData);
     }
 }

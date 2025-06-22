@@ -6,7 +6,7 @@ import org.springframework.kafka.config.TopicBuilder;
 public class KafkaTopics {
 
     public NewTopic urlTopic(){
-        return TopicBuilder.name("in-transactions")
+        return TopicBuilder.name("transactions")
                 .build();
     }
 
