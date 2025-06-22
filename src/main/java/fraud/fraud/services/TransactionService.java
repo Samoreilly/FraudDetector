@@ -2,29 +2,31 @@ package fraud.fraud.services;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import fraud.fraud.DTO.TransactionRequest;
-import fraud.fraud.ErrorMessages;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.support.SendResult;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 @Service
 public class TransactionService {
 
     private final RedisTemplate<String, Object> redisTemplate;
     private final ObjectMapper objectMapper;
+    private final SetupSse setupSse;
+    private final KafkaTemplate<String, TransactionRequest> kafkaTemplate;
 
-    public TransactionService(RedisTemplate<String, Object> redisTemplate, ObjectMapper objectMapper) {
+    public TransactionService(RedisTemplate<String, Object> redisTemplate, ObjectMapper objectMapper, SetupSse setupSse, KafkaTemplate<String, TransactionRequest>  kafkaTemplate) {
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
+        this.setupSse = setupSse;
+        this.kafkaTemplate = kafkaTemplate;
     }
 
     public boolean checkTimestamps(TransactionRequest userData, List<TransactionRequest> validateTimes){
@@ -39,7 +41,6 @@ public class TransactionService {
     public List<TransactionRequest> getTransactions(TransactionRequest userData){ // passes into transaction of type TransactionRequest
         String key = userData.getId();
         Long size = redisTemplate.opsForList().size(key);
-
 
         List<Object> transactions = redisTemplate.opsForList().range(userData.getId(),0,-1);//gets userdata by id by looking from start to end of list
         if(transactions == null){
@@ -78,9 +79,15 @@ public class TransactionService {
         saveTransaction(userData);//save transaction
         System.out.println("Cached");
 
-        return;
     }
     public void saveTransaction(TransactionRequest userData){
         redisTemplate.opsForList().leftPush(userData.getId(), userData);
+        userData.setResult("Successful");
+        try {
+            kafkaTemplate.send("out-transactions", userData);
+            System.out.println("Transaction sent successfully");
+        } catch (Exception e) {
+            System.err.println("Failed to send transaction: " + e.getMessage());
+        }
     }
 }
