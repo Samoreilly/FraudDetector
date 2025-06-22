@@ -30,7 +30,7 @@ public class TransactionService {
     }
 
     public boolean checkTimestamps(TransactionRequest userData, List<TransactionRequest> validateTimes){
-        userData.setResult("Validating your transaction for fraud");
+        userData.setResult("Validating your transaction for potential fraud");
         kafkaTemplate.send("out-transactions", userData.getId(), userData);
         if(validateTimes == null || validateTimes.isEmpty()){
             return true;
@@ -42,7 +42,7 @@ public class TransactionService {
     public List<TransactionRequest> getTransactions(TransactionRequest userData){ // passes into transaction of type TransactionRequest
         String key = userData.getId();
         Long size = redisTemplate.opsForList().size(key);
-        userData.setResult("Reading from cached previous transactions");
+        userData.setResult("Checking your previous transactions");
         kafkaTemplate.send("out-transactions", userData.getId(), userData);
         List<Object> transactions = redisTemplate.opsForList().range(userData.getId(),0,-1);//gets userdata by id by looking from start to end of list
         if(transactions == null){
@@ -88,6 +88,8 @@ public class TransactionService {
     }
     public void saveTransaction(TransactionRequest userData){
         redisTemplate.opsForList().leftPush(userData.getId(), userData);
+        userData.setResult("Caching your transaction");
+        kafkaTemplate.send("out-transactions", userData.getId(), userData);
 
         try {
             userData.setResult("Successful");
