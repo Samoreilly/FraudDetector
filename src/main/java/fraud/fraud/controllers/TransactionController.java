@@ -2,6 +2,7 @@ package fraud.fraud.controllers;
 
 import fraud.fraud.DTO.TransactionRequest;
 import fraud.fraud.ErrorMessages;
+import fraud.fraud.Monitoring.CustomMetricsService;
 import fraud.fraud.RateLimitExceededException;
 import fraud.fraud.services.RateLimiting;
 import fraud.fraud.services.SetupSse;
@@ -24,18 +25,20 @@ public class TransactionController {
     private final RateLimiting rateLimiting;
     private final KafkaTemplate<String, TransactionRequest> kafkaTemplate;
     private final SetupSse setupSse;
+    private final CustomMetricsService customMetricsService;
 
     public TransactionController(TransactionService transactionService, RateLimiting rateLimiting,
-                                 KafkaTemplate<String, TransactionRequest> kafkaTemplate, SetupSse setupSse) {
+                                 KafkaTemplate<String, TransactionRequest> kafkaTemplate, SetupSse setupSse, CustomMetricsService customMetricsService) {
         this.transactionService = transactionService;
         this.rateLimiting = rateLimiting;
         this.kafkaTemplate = kafkaTemplate;
         this.setupSse = setupSse;
+        this.customMetricsService = customMetricsService;
     }
 
     @PostMapping("/tr")
-    public ResponseEntity<String> transaction(@RequestBody TransactionRequest transactionInfo,
-                                              HttpServletRequest request, HttpSession session) {
+    public ResponseEntity<String> transaction(@RequestBody TransactionRequest transactionInfo, HttpServletRequest request, HttpSession session) {
+        customMetricsService.incrementTotalApiRequests();
         String ip = getClientIp(request);
         String key = "rate_limit:ip" + ip;
         String id = session.getId();
@@ -52,12 +55,14 @@ public class TransactionController {
             kafkaTemplate.send("transactions",transactionInfo);//THIS SHOULD BE IN SERVICE NOT HERE.. FIX SOON
             return ResponseEntity.accepted().body("Transaction submitted");
         } else {
+            customMetricsService.incrementRateLimitedRequests();
             throw new RateLimitExceededException(ErrorMessages.RATE_LIMIT_EXCEEDED);
         }
     }
 
     @GetMapping("/streams/results")
     public SseEmitter streamResults(HttpSession session) {
+
         if (session.isNew()) {
             session.setAttribute("created", System.currentTimeMillis());
         }
