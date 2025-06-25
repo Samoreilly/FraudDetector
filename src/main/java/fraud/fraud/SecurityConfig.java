@@ -29,7 +29,7 @@ public class SecurityConfig implements WebMvcConfigurer {
                 .cors(cors -> {})
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/**").permitAll()
+                        .requestMatchers("/api/**","/actuator/prometheus").permitAll()
                         .anyRequest().authenticated()
                 );
         return http.build();
