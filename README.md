@@ -56,15 +56,17 @@ Run redis-cli in bash
 ```bash
 spring.application.name=FraudDetector
 spring.kafka.bootstrap-servers=localhost:9092
-
 spring.cache.type=redis
 spring.data.redis.host=localhost
 spring.data.redis.port=6379
-
 logging.level.org.springframework.cache=DEBUG
 logging.level.org.springframework.data.redis.cache=DEBUG
 
+management.endpoints.web.exposure.include=*
+management.endpoint.health.show-details=always
+
 spring.jackson.serialization.write-dates-as-timestamps=false
+
 ```
 ## How It Works
 
