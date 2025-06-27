@@ -13,6 +13,8 @@ public class TransactionRequest implements Serializable {
     public LocalDateTime time;
     public String clientIp;
     public String result;
+    public Double latitude;
+    public Double longitude;
 
     public String getId() {
         return id;
@@ -32,7 +34,6 @@ public class TransactionRequest implements Serializable {
     public LocalDateTime getTime() {
         return time;
     }
-
     public String getClientIp() {
         return clientIp;
     }
@@ -48,15 +49,30 @@ public class TransactionRequest implements Serializable {
     public void setResult(String result) {
         this.result = result;
     }
+    public Double getLatitude() {
+        return latitude;
+    }
+    public void setLatitude(Double latitude) {
+        this.latitude = latitude;
+    }
+    public Double getLongitude() {
+        return longitude;
+    }
+
+    public void setLng(Double lng) {
+        this.longitude = lng;
+    }
 
     public TransactionRequest() {
 
     }
-    public TransactionRequest(String id, String data, LocalDateTime time, String clientIp, String result) {
+    public TransactionRequest(String id, String data, LocalDateTime time, String clientIp, String result,  Double latitude, Double longitude) {
         this.id = id;
         this.data = data;
         this.time = time;
         this.clientIp = clientIp;
         this.result = result;
+        this.latitude = latitude;
+        this.longitude = longitude;
     }
 }

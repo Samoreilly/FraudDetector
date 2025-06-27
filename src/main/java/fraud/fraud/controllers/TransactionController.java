@@ -42,6 +42,8 @@ public class TransactionController {
         String ip = getClientIp(request);
         String key = "rate_limit:ip" + ip;
         String id = session.getId();
+        System.out.println("LATITUDE"+transactionInfo.getLatitude());
+        System.out.println("LONGITUDE"+transactionInfo.getLongitude());
 
         if (session.isNew()) {
             session.setAttribute("created", System.currentTimeMillis());
