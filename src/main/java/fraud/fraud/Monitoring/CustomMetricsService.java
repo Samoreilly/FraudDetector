@@ -20,7 +20,7 @@ public class CustomMetricsService {
         totalApiRequestCounter = Counter.builder("total_api_requests")
                 .description("total_api_requests")
                 .register(meterRegistry);
-        rateLimitedRequestCounter = Counter.builder("total_rate_limited_blocked_requests")
+        rateLimitedRequestCounter = Counter.builder("total_rate_limited_blocked")
                 .description("total_rate_limited_blocked_requests")
                 .register(meterRegistry);
     }

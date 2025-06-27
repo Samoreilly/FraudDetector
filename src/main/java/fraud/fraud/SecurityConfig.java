@@ -26,12 +26,12 @@ public class SecurityConfig implements WebMvcConfigurer {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .cors(cors -> {})
-                .csrf(AbstractHttpConfigurer::disable)
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/**","/actuator/prometheus").permitAll()
-                        .anyRequest().authenticated()
-                );
+            .cors(cors -> {})
+            .csrf(AbstractHttpConfigurer::disable)
+            .authorizeHttpRequests(auth -> auth
+                    .requestMatchers("/api/**","/actuator/prometheus").permitAll()
+                    .anyRequest().authenticated()
+            );
         return http.build();
     }
 }

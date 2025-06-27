@@ -22,12 +22,14 @@ public class TransactionService {
     private final ObjectMapper objectMapper;
     private final SetupSse setupSse;
     private final KafkaTemplate<String, TransactionRequest> kafkaTemplate;
+    private final TransactionSecurityCheck transactionSecurityCheck;
 
-    public TransactionService(RedisTemplate<String, Object> redisTemplate, ObjectMapper objectMapper, SetupSse setupSse, KafkaTemplate<String, TransactionRequest>  kafkaTemplate) {
+    public TransactionService(RedisTemplate<String, Object> redisTemplate, ObjectMapper objectMapper, SetupSse setupSse, KafkaTemplate<String, TransactionRequest>  kafkaTemplate, TransactionSecurityCheck transactionSecurityCheck) {
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
         this.setupSse = setupSse;
         this.kafkaTemplate = kafkaTemplate;
+        this.transactionSecurityCheck = transactionSecurityCheck;
     }
 
     public boolean checkTimestamps(TransactionRequest userData, List<TransactionRequest> validateTimes){
@@ -107,7 +109,7 @@ public class TransactionService {
     public double calculateDistance(double startLat, double startLong, double endLat, double endLong) {
         double EARTH_RADIUS = 6378137.0;
         double lat1Rad = Math.toRadians(startLat);
-        double lat2Rad = Math.toRadians(startLong);
+        double lat2Rad = Math.toRadians(endLat);
         double deltaLatRad = Math.toRadians(endLat - startLat);
         double deltaLonRad = Math.toRadians(endLong - startLong);
 
