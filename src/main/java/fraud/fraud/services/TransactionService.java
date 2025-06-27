@@ -75,41 +75,49 @@ public class TransactionService {
 
             return false;
         }
+        userData.setResult("Validating latitude and longitude");
+        kafkaTemplate.send("out-transactions", userData.getId(), userData);
         TransactionRequest trans = objectMapper.convertValue(transaction, TransactionRequest.class);
 
         Double prevLatitude = trans.getLatitude();
         Double prevLongitude = trans.getLongitude();
         Double latitude = userData.getLatitude();
         Double longitude = userData.getLongitude();
-        double distance;
 
-        if(prevLatitude != null && prevLongitude != null && latitude != null && longitude != null){
-            distance = calculateDistance(latitude,longitude,prevLatitude,prevLongitude);
-            Duration duration = Duration.between(LocalDateTime.now(),trans.getTime());
-            if(distance > 200 && duration.getSeconds() < 1000 ){
-                return false;
-            }else{
-                return true;
-            }
-        }else{
-            return true; // this will be changed, this is not a solution
+        double distanceInMeters = calculateDistance(latitude, longitude,
+                prevLatitude, prevLongitude);
+
+        Duration duration = Duration.between(trans.getTime(), userData.getTime());
+        long timeDiffSeconds = Math.abs(duration.getSeconds());
+
+        double distanceInKm = distanceInMeters / 1000.0;
+
+        double requiredSpeedKmh = (distanceInKm / timeDiffSeconds) * 3600;
+
+        if(requiredSpeedKmh > 500.0 && timeDiffSeconds > 0){
+            userData.setResult("Suspicious location change detected");
+            kafkaTemplate.send("out-transactions", userData.getId(), userData);
+            System.out.println("Fraud detected - impossible travel speed: " + requiredSpeedKmh + " km/h");
+            return false;
         }
+
+        System.out.println("Location validation passed - speed: " + requiredSpeedKmh + " km/h");
+        return true;
     }
     public double calculateDistance(double startLat, double startLong, double endLat, double endLong) {
         double EARTH_RADIUS = 6378137.0;
-        double dLat = Math.toRadians((endLat - startLat));
-        double dLong = Math.toRadians((endLong - startLong));
+        double lat1Rad = Math.toRadians(startLat);
+        double lat2Rad = Math.toRadians(startLong);
+        double deltaLatRad = Math.toRadians(endLat - startLat);
+        double deltaLonRad = Math.toRadians(endLong - startLong);
 
-        startLat = Math.toRadians(startLat);
-        endLat = Math.toRadians(endLat);
+        double a = Math.sin(deltaLatRad / 2) * Math.sin(deltaLatRad / 2) +//haversine formula to calculate distance between two points on earth in metres
+                Math.cos(lat1Rad) * Math.cos(lat2Rad) *
+                        Math.sin(deltaLonRad / 2) * Math.sin(deltaLonRad / 2);
 
-        double a = haversine(dLat) + Math.cos(startLat) * Math.cos(endLat) * haversine(dLong);
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
-        return EARTH_RADIUS * c;
-    }
-    double haversine(double val) {
-        return Math.pow(Math.sin(val / 2), 2);
+        return EARTH_RADIUS * c; // Distance in meters
     }
     @KafkaListener(topics = "transactions", groupId = "in-transactions", containerFactory = "factory")
     public void transactionPipeline(@Payload TransactionRequest userData){
@@ -119,7 +127,7 @@ public class TransactionService {
         //getTransactions(userData);//retrieve users transactions as a list
         List<TransactionRequest> transactions = getTransactions(userData);
 
-        if(!checkTimestamps(userData, transactions)){
+        if(!checkTimestamps(userData, transactions) && checkTransactionByLocation(userData)){
             userData.setResult("Too many transactions.. retry again in 5 seconds");
             kafkaTemplate.send("out-transactions",userData.getId(), userData);
             System.out.println("sent too early");
