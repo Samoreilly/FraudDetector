@@ -10,6 +10,7 @@ import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -66,7 +67,49 @@ public class TransactionService {
         }
 
         return tx;
+    }
 
+    public boolean checkTransactionByLocation(TransactionRequest userData){
+        Object transaction = redisTemplate.opsForList().getFirst(userData.getId());
+        if(transaction == null){
+
+            return false;
+        }
+        TransactionRequest trans = objectMapper.convertValue(transaction, TransactionRequest.class);
+
+        Double prevLatitude = trans.getLatitude();
+        Double prevLongitude = trans.getLongitude();
+        Double latitude = userData.getLatitude();
+        Double longitude = userData.getLongitude();
+        double distance;
+
+        if(prevLatitude != null && prevLongitude != null && latitude != null && longitude != null){
+            distance = calculateDistance(latitude,longitude,prevLatitude,prevLongitude);
+            Duration duration = Duration.between(LocalDateTime.now(),trans.getTime());
+            if(distance > 200 && duration.getSeconds() < 1000 ){
+                return false;
+            }else{
+                return true;
+            }
+        }else{
+            return true; // this will be changed, this is not a solution
+        }
+    }
+    public double calculateDistance(double startLat, double startLong, double endLat, double endLong) {
+        double EARTH_RADIUS = 6378137.0;
+        double dLat = Math.toRadians((endLat - startLat));
+        double dLong = Math.toRadians((endLong - startLong));
+
+        startLat = Math.toRadians(startLat);
+        endLat = Math.toRadians(endLat);
+
+        double a = haversine(dLat) + Math.cos(startLat) * Math.cos(endLat) * haversine(dLong);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        return EARTH_RADIUS * c;
+    }
+    double haversine(double val) {
+        return Math.pow(Math.sin(val / 2), 2);
     }
     @KafkaListener(topics = "transactions", groupId = "in-transactions", containerFactory = "factory")
     public void transactionPipeline(@Payload TransactionRequest userData){

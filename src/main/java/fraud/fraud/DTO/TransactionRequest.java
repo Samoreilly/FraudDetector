@@ -62,7 +62,6 @@ public class TransactionRequest implements Serializable {
     public void setLng(Double lng) {
         this.longitude = lng;
     }
-
     public TransactionRequest() {
 
     }
