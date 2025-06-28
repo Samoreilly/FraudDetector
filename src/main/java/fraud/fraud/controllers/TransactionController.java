@@ -40,20 +40,30 @@ public class TransactionController {
         this.customMetricsService = customMetricsService;
         this.transactionSecurityCheck = transactionSecurityCheck;
     }
-    @GetMapping("/fraud")
-    public Map<String, Object> getUser(@AuthenticationPrincipal OAuth2User principal) {
+//    @PostMapping("/")
+//    public Map<String, Object> getUser(@AuthenticationPrincipal OAuth2User principal) {
+//
+//        if(principal == null){
+//            System.out.println("PRINCIPAL NULL");
+//            return Map.of("error", "PRINCIPAL NULL");
+//        }
+//        System.out.println("GOOGLE DETAILS");
+//        System.out.println(principal.getAttributes());
+//        return principal.getAttributes();
+//    }
+
+    @PostMapping("/tr")
+    public ResponseEntity<String> transaction(@RequestBody TransactionRequest transactionInfo, HttpServletRequest request, HttpSession session, @AuthenticationPrincipal OAuth2User principal) throws IOException {
 
         if(principal == null){
             System.out.println("PRINCIPAL NULL");
-            return Map.of("error", "PRINCIPAL NULL");
-        }
-        System.out.println("GOOGLE DETAILS");
-        System.out.println(principal.getAttributes());
-        return principal.getAttributes();
-    }
+        }else{
+            System.out.println("getName() = "+ principal.getName());
+            System.out.println("sub = " + principal.getAttribute("sub"));
 
-    @PostMapping("/tr")
-    public ResponseEntity<String> transaction(@RequestBody TransactionRequest transactionInfo, HttpServletRequest request, HttpSession session) throws IOException {
+        }
+
+
         customMetricsService.incrementTotalApiRequests();
         String ip = getClientIp(request);
         String key = "rate_limit:ip" + ip;
