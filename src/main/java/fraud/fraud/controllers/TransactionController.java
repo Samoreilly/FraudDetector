@@ -12,6 +12,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.http.ResponseEntity;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -37,6 +39,17 @@ public class TransactionController {
         this.setupSse = setupSse;
         this.customMetricsService = customMetricsService;
         this.transactionSecurityCheck = transactionSecurityCheck;
+    }
+    @GetMapping("/fraud")
+    public Map<String, Object> getUser(@AuthenticationPrincipal OAuth2User principal) {
+
+        if(principal == null){
+            System.out.println("PRINCIPAL NULL");
+            return Map.of("error", "PRINCIPAL NULL");
+        }
+        System.out.println("GOOGLE DETAILS");
+        System.out.println(principal.getAttributes());
+        return principal.getAttributes();
     }
 
     @PostMapping("/tr")
