@@ -62,6 +62,7 @@ public class TransactionController {
         System.out.println("Transaction endpoint - Session ID: " + sessionId);
 
         if (rateLimiting.isAllowed(key) && !transactionSecurityCheck.checkVpn(ip)) {
+            System.out.println("IP KEY"+ key);
             transactionInfo.setClientIp(ip);
             transactionInfo.setId(sessionId);
             transactionInfo.setResult("Not a vpn");

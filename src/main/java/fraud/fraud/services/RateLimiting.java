@@ -15,7 +15,7 @@ import java.util.List;
 public class RateLimiting {
 
     public final ValueOperations<String, Integer> val;
-    public static final int MAX_REQUESTS = 5;
+    public static final int MAX_REQUESTS = 10;
     private final Duration WINDOW = Duration.ofMinutes(1);
 
     public RateLimiting(@Qualifier("integerRedisTemplate") RedisTemplate<String, Integer> redisTemplate) {
