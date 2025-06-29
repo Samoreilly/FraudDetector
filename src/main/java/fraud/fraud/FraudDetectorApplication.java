@@ -1,6 +1,6 @@
 package fraud.fraud;
 
-import fraud.fraud.AI.LogisticRegression;
+import fraud.fraud.AI.LogisticRegressionTraining;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
@@ -14,18 +14,12 @@ import org.springframework.kafka.annotation.EnableKafka;
 @EnableKafka
 public class FraudDetectorApplication {
 	@Autowired
-	private LogisticRegression logisticRegression;
+	private LogisticRegressionTraining logisticRegression;
 
 	public static void main(String[] args) {
 		SpringApplication.run(FraudDetectorApplication.class, args);
 
 	}
-	@Bean
-	public CommandLineRunner runOnStartup() {
-		return args -> {
-			logisticRegression.readLineByLineExample();
-			System.out.println("CSV read successfully!");
-		};
-	}
+
 
 }
