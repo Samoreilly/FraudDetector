@@ -1,6 +1,7 @@
 package fraud.fraud.services;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import fraud.fraud.AI.LogisticRegressionTraining;
 import fraud.fraud.DTO.TransactionRequest;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -23,13 +24,16 @@ public class TransactionService {
     private final SetupSse setupSse;
     private final KafkaTemplate<String, TransactionRequest> kafkaTemplate;
     private final TransactionSecurityCheck transactionSecurityCheck;
+    private final LogisticRegressionTraining logisticRegressionTraining;
+    LogisticRegressionTraining service = new LogisticRegressionTraining();
 
-    public TransactionService(RedisTemplate<String, Object> redisTemplate, ObjectMapper objectMapper, SetupSse setupSse, KafkaTemplate<String, TransactionRequest>  kafkaTemplate, TransactionSecurityCheck transactionSecurityCheck) {
+    public TransactionService(RedisTemplate<String, Object> redisTemplate, LogisticRegressionTraining logisticRegressionTraining, ObjectMapper objectMapper, SetupSse setupSse, KafkaTemplate<String, TransactionRequest>  kafkaTemplate, TransactionSecurityCheck transactionSecurityCheck) {
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
         this.setupSse = setupSse;
         this.kafkaTemplate = kafkaTemplate;
         this.transactionSecurityCheck = transactionSecurityCheck;
+        this.logisticRegressionTraining = logisticRegressionTraining;
     }
 
     public boolean checkTimestamps(TransactionRequest userData, List<TransactionRequest> validateTimes){
@@ -42,8 +46,24 @@ public class TransactionService {
         return duration.getSeconds() >= 5;
     }
 
-    public List<TransactionRequest> getTransactions(TransactionRequest userData){ // passes into transaction of type TransactionRequest
+    public List<TransactionRequest> getTransactions(TransactionRequest userData) throws Exception { // passes into transaction of type TransactionRequest
         String key = userData.getId();
+        service.trainModel();
+        boolean isFraud = service.predictFraud(Double.parseDouble(userData.getData()), userData.getLatitude(), userData.getLongitude()); // amount, lat, lng
+        double fraudProb = service.getFraudProbability(Double.parseDouble(userData.getData()), userData.getLatitude(), userData.getLongitude());
+        // Log the results
+        System.out.printf("Transaction ID: %s\n", key);
+        System.out.printf("Fraud Prediction: %s\n", isFraud ? "FRAUD" : "LEGITIMATE");
+        System.out.printf("Fraud Probability: %.2f%% (%.4f)\n", fraudProb * 100, fraudProb);
+
+        // You could set different thresholds
+        if (fraudProb > 0.7) {
+            System.out.println("HIGH RISK - Block transaction");
+        } else if (fraudProb > 0.3) {
+            System.out.println("MEDIUM RISK - Additional verification needed");
+        } else {
+            System.out.println("LOW RISK - Approve transaction");
+        }
         Long size = redisTemplate.opsForList().size(key);
         userData.setResult("Checking your previous transactions");
         kafkaTemplate.send("out-transactions", userData.getId(), userData);
@@ -122,7 +142,7 @@ public class TransactionService {
         return EARTH_RADIUS * c; // Distance in meters
     }
     @KafkaListener(topics = "transactions", groupId = "in-transactions", containerFactory = "factory")
-    public void transactionPipeline(@Payload TransactionRequest userData){
+    public void transactionPipeline(@Payload TransactionRequest userData) throws Exception {
         userData.setResult("Processing your transaction");
         kafkaTemplate.send("out-transactions", userData.getId(), userData);
         System.out.println(userData);
