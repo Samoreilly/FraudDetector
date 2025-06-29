@@ -100,6 +100,7 @@ public class TransactionController {
         if(principal == null){
             return ResponseEntity.status(401).body(Map.of("Error","Unauthorized"));
         }
+
         String sessionId = principal.getAttribute("sub");
 
         ResponseCookie cookie = ResponseCookie.from("sessionId", sessionId)
@@ -111,9 +112,6 @@ public class TransactionController {
                 .build();
         response.addHeader("Set-Cookie",cookie.toString());
         return ResponseEntity.ok(Map.of("sessionId",sessionId));
-
-
-
 
     }
 
