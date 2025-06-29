@@ -7,6 +7,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -36,7 +37,10 @@ public class SecurityConfig implements WebMvcConfigurer {
                         .anyRequest().permitAll()
                 )
 
-                .oauth2Login(oauth2 -> oauth2.defaultSuccessUrl("http://localhost:5173/fraud"));
+                .oauth2Login(oauth2 -> oauth2.defaultSuccessUrl("http://localhost:5173/fraud"))
+                .exceptionHandling(exception -> exception
+                .authenticationEntryPoint(new LoginUrlAuthenticationEntryPoint("/oauth2/authorization/google"))
+        );
         return http.build();
 
 

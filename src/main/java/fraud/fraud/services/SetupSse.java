@@ -4,6 +4,8 @@ import fraud.fraud.DTO.TransactionRequest;
 import jakarta.servlet.http.HttpSession;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -17,9 +19,9 @@ public class SetupSse {
 
     private final Map<String, SseEmitter> userEmitter = new ConcurrentHashMap<>();
 
-    public SseEmitter streamResults(HttpSession session) {
+    public SseEmitter streamResults(@AuthenticationPrincipal OAuth2User principal) {
         SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
-        String sessionId = session.getId();
+        String sessionId = principal.getAttribute("sub");
 
         System.out.println("Setting up SSE for session: " + sessionId);
         userEmitter.put(sessionId, emitter);
