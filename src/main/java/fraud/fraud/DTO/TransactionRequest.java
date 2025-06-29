@@ -15,6 +15,15 @@ public class TransactionRequest implements Serializable {
     public String result;
     public Double latitude;
     public Double longitude;
+    public int isFraud;
+
+    public int getIsFraud() {
+        return isFraud;
+    }
+
+    public void setIsFraud(int isFraud) {
+        this.isFraud = isFraud;
+    }
 
     public String getId() {
         return id;
@@ -65,13 +74,14 @@ public class TransactionRequest implements Serializable {
     public TransactionRequest() {
 
     }
-    public TransactionRequest(String id, String data, LocalDateTime time, String clientIp, String result,  Double latitude, Double longitude) {
-        this.id = id;
-        this.data = data;
-        this.time = time;
-        this.clientIp = clientIp;
-        this.result = result;
-        this.latitude = latitude;
-        this.longitude = longitude;
+    public TransactionRequest(String id, String data, LocalDateTime time, String clientIp, String result,  Double latitude, Double longitude, int isFraud) {
+        this.id = id;//0
+        this.data = data;//1
+        this.time = time;//2
+        this.clientIp = clientIp;//3
+        this.result = result;//4
+        this.latitude = latitude;//5
+        this.longitude = longitude;//6
+        this.isFraud = isFraud;//7
     }
 }
