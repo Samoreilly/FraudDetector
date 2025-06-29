@@ -43,7 +43,7 @@ public class TransactionService {
             return true;
         }
         Duration duration = Duration.between(validateTimes.getFirst().getTime(),userData.getTime());
-        return duration.getSeconds() >= 5;
+        return duration.getSeconds() >= 10;
     }
 
     public List<TransactionRequest> getTransactions(TransactionRequest userData) throws Exception { // passes into transaction of type TransactionRequest
@@ -51,12 +51,12 @@ public class TransactionService {
         service.trainModel();
         boolean isFraud = service.predictFraud(Double.parseDouble(userData.getData()), userData.getLatitude(), userData.getLongitude()); // amount, lat, lng
         double fraudProb = service.getFraudProbability(Double.parseDouble(userData.getData()), userData.getLatitude(), userData.getLongitude());
-        // Log the results
         System.out.printf("Transaction ID: %s\n", key);
         System.out.printf("Fraud Prediction: %s\n", isFraud ? "FRAUD" : "LEGITIMATE");
         System.out.printf("Fraud Probability: %.2f%% (%.4f)\n", fraudProb * 100, fraudProb);
-
-        // You could set different thresholds
+        String fraudProbString = String.valueOf(fraudProb);
+        userData.setResult(fraudProbString);
+        kafkaTemplate.send("out-transactions", userData.getId(), userData);
         if (fraudProb > 0.7) {
             System.out.println("HIGH RISK - Block transaction");
         } else if (fraudProb > 0.3) {
