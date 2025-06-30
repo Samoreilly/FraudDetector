@@ -1,6 +1,7 @@
 package fraud.fraud.services;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.opencsv.CSVWriter;
 import fraud.fraud.AI.LogisticRegressionTraining;
 import fraud.fraud.DTO.TransactionRequest;
 import fraud.fraud.entitys.Threat;
@@ -10,7 +11,10 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.SendResult;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Service;
+import smile.io.CSV;
 
+import java.io.FileWriter;
+import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -65,7 +69,11 @@ public class TransactionService {
             userData.setFlagged(Threat.MEDIUM);
             userData.setResult("Your transaction was deemed mildly suspicious");
             kafkaTemplate.send("out-transactions", userData.getId(), userData);
-
+            return false;
+        }else{
+            userData.setFlagged(Threat.LOW);
+            userData.setResult("Your transaction cleared fraud check");
+            kafkaTemplate.send("out-transactions", userData.getId(), userData);
         }
         return false;
     }
@@ -178,7 +186,6 @@ public class TransactionService {
             System.out.println("Fraud detected – exiting early from pipeline");
             return;
         }
-
         //getTransactions(userData);
         // retrieve users transactions as a list
         List<TransactionRequest> transactions = getTransactions(userData);
@@ -188,11 +195,11 @@ public class TransactionService {
             System.out.println("sent too early");
             return;
         }
-        saveTransaction(userData);//save transaction
+        saveTransaction(userData, isFraud);//save transaction
         System.out.println("Cached");
 
     }
-    public void saveTransaction(TransactionRequest userData){
+    public void saveTransaction(TransactionRequest userData, boolean isFraud){
         redisTemplate.opsForList().leftPush(userData.getId(), userData);
         userData.setResult("Caching your transaction");
         kafkaTemplate.send("out-transactions", userData.getId(), userData);
@@ -200,11 +207,41 @@ public class TransactionService {
         try {
             userData.setResult("Successful");
             kafkaTemplate.send("out-transactions",userData.getId(), userData);
+            addModel(userData, isFraud);// add data to csv to build improve dataset
             System.out.println("Transaction sent successfully");
         } catch (Exception e) {
             System.err.println("Failed to send transaction: " + e.getMessage());
             userData.setResult("Error processing transaction");
             kafkaTemplate.send("out-transactions",userData.getId(), userData);
         }
+    }
+    public void addModel(TransactionRequest userData, boolean isFraud) throws Exception {
+        String CSV_PATH = "/home/sam-o-reilly/IdeaProjects/FraudDetector/csv/trans.csv";
+
+        long currentEpoch = userData.getTime().toEpochSecond(ZoneOffset.UTC);
+        long epochSeconds = 1719650000 + (currentEpoch % 60000);
+
+        String val = isFraud ? "1" : "0";
+
+        String[] data = new String[] {
+                userData.getId(),
+                userData.getData(),
+                String.valueOf(epochSeconds),
+                String.valueOf(userData.getLatitude()),
+                String.valueOf(userData.getLongitude()),
+                val
+        };
+
+        try (CSVWriter writer = new CSVWriter( new FileWriter(CSV_PATH, true),
+                CSVWriter.DEFAULT_SEPARATOR,
+                CSVWriter.NO_QUOTE_CHARACTER,
+                CSVWriter.DEFAULT_ESCAPE_CHARACTER,
+                CSVWriter.DEFAULT_LINE_END)) {
+            writer.writeNext(data);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to append data to CSV file", e);
+        }
+
+
     }
 }

@@ -1,5 +1,6 @@
 package fraud.fraud.DTO;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import fraud.fraud.entitys.Threat;
 
@@ -17,7 +18,9 @@ public class TransactionRequest implements Serializable {
     public Double latitude;
     public Double longitude;
     public int isFraud;
-    public Threat flagged;
+
+    @JsonFormat(shape = JsonFormat.Shape.STRING)
+    private Threat flagged;
 
     public int getIsFraud() {
         return isFraud;
@@ -93,6 +96,6 @@ public class TransactionRequest implements Serializable {
         this.latitude = latitude;//5
         this.longitude = longitude;//6
         this.isFraud = isFraud;//7
-        this.flagged = flagged;
+        this.flagged = flagged;//8
     }
 }
