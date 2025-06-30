@@ -49,10 +49,13 @@ public class TransactionService {
 
     public List<TransactionRequest> getTransactions(TransactionRequest userData) throws Exception { // passes into transaction of type TransactionRequest
         String key = userData.getId();
-        double epochSeconds =  userData.getTime().toEpochSecond(ZoneOffset.UTC);
+
+        long currentEpoch = userData.getTime().toEpochSecond(ZoneOffset.UTC);
+        //normalize time to fit into the models time range. As the models time range is around 2024 and input data is in 2025
+        double epochSeconds = 1719650000 + (currentEpoch % 60000);
         service.trainModel();
-        boolean isFraud = service.predictFraud(Double.parseDouble(userData.getData()),epochSeconds, userData.getClientIp(), userData.getLatitude(), userData.getLongitude()); // amount, lat, lng
-        double fraudProb = service.getFraudProbability(Double.parseDouble(userData.getData()), epochSeconds, userData.getClientIp(), userData.getLatitude(), userData.getLongitude());
+        boolean isFraud = service.predictFraud(Double.parseDouble(userData.getData()),epochSeconds, userData.getLatitude(), userData.getLongitude()); // amount, lat, lng
+        double fraudProb = service.getFraudProbability(Double.parseDouble(userData.getData()), epochSeconds, userData.getLatitude(), userData.getLongitude());
         System.out.printf("Transaction ID: %s\n", key);
         System.out.printf("Fraud Prediction: %s\n", isFraud ? "FRAUD" : "LEGITIMATE");
         System.out.printf("Fraud Probability: %.2f%% (%.4f)\n", fraudProb * 100, fraudProb);
