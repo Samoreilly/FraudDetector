@@ -10,6 +10,7 @@ import java.io.Reader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -29,9 +30,6 @@ public class LogisticRegressionTraining {
         }
     }
 
-    /**
-     * Read CSV file and return raw data
-     */
     public List<String[]> readCsvFile(String filePath) throws Exception {
         Path path = Paths.get(filePath);
         List<String[]> records = new ArrayList<>();
@@ -47,17 +45,13 @@ public class LogisticRegressionTraining {
         return records;
     }
 
-    /**
-     * Process raw CSV data into features and labels for ML training
-     */
     public FraudData processTransactionData(List<String[]> rawData) {
         if (rawData.isEmpty()) {
             throw new IllegalArgumentException("No data provided");
         }
 
-        // Skip header row
         int dataSize = rawData.size() - 1;
-        double[][] features = new double[dataSize][3];
+        double[][] features = new double[dataSize][5];
         int[] labels = new int[dataSize];
 
         for (int i = 1; i < rawData.size(); i++) {
@@ -67,8 +61,10 @@ public class LogisticRegressionTraining {
             try {
                 //split into features which is the data that matters and a label which is the result
                 features[index][0] = Double.parseDouble(row[1]); // amount
-                features[index][1] = Double.parseDouble(row[4]); // latitude
-                features[index][2] = Double.parseDouble(row[5]); // longitude
+                features[index][1] = Double.parseDouble(row[2]);// time
+                features[index][2] = ipToDouble(row[3]);// client ip
+                features[index][3] = Double.parseDouble(row[4]); // latitude
+                features[index][4] = Double.parseDouble(row[5]); // longitude
 
                 labels[index] = Integer.parseInt(row[6]); // isFraud - result
 
@@ -81,6 +77,16 @@ public class LogisticRegressionTraining {
 
         return new FraudData(features, labels);
     }
+    public static double ipToDouble(String ip) {
+        String[] parts = ip.split("\\.");
+        long result = 0;
+        for (int i = 0; i < 4; i++) {
+            result = result << 8;
+            result |= Integer.parseInt(parts[i]);
+        }
+        return (double) result;
+    }
+
 
     public void trainModel() throws Exception {
         List<String[]> rawData = readCsvFile(CSV_PATH);
@@ -94,23 +100,24 @@ public class LogisticRegressionTraining {
 
 
     //predict model based off transaction data -- i will add more later
-    public boolean predictFraud(double amount, double latitude, double longitude) {
+    public boolean predictFraud(double amount, double time, String clientIp, double latitude, double longitude) {
         if (model == null) {
             throw new IllegalStateException("Model not trained yet. Call trainModel() first.");
         }
-
-        double[] features = {amount, latitude, longitude};
+        double convertedIp = ipToDouble(clientIp);
+        double[] features = {amount, time, convertedIp, latitude, longitude};
         int prediction = model.predict(features);
 
         return prediction == 1; // assuming 1 = fraud, 0 = legitimate
     }
 
-    public double getFraudProbability(double amount, double latitude, double longitude) {
+    public double getFraudProbability(double amount, double time, String clientIp, double latitude, double longitude) {
         if (model == null) {
             throw new IllegalStateException("Model not trained yet. Call trainModel() first.");
         }
+        double convertedIp = ipToDouble(clientIp);
 
-        double[] features = {amount, latitude, longitude};
+        double[] features = {amount,time, convertedIp, latitude, longitude};
         double[] probabilities = new double[2];
         model.predict(features, probabilities);
 

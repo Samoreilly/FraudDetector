@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -48,9 +49,10 @@ public class TransactionService {
 
     public List<TransactionRequest> getTransactions(TransactionRequest userData) throws Exception { // passes into transaction of type TransactionRequest
         String key = userData.getId();
+        double epochSeconds =  userData.getTime().toEpochSecond(ZoneOffset.UTC);
         service.trainModel();
-        boolean isFraud = service.predictFraud(Double.parseDouble(userData.getData()), userData.getLatitude(), userData.getLongitude()); // amount, lat, lng
-        double fraudProb = service.getFraudProbability(Double.parseDouble(userData.getData()), userData.getLatitude(), userData.getLongitude());
+        boolean isFraud = service.predictFraud(Double.parseDouble(userData.getData()),epochSeconds, userData.getClientIp(), userData.getLatitude(), userData.getLongitude()); // amount, lat, lng
+        double fraudProb = service.getFraudProbability(Double.parseDouble(userData.getData()), epochSeconds, userData.getClientIp(), userData.getLatitude(), userData.getLongitude());
         System.out.printf("Transaction ID: %s\n", key);
         System.out.printf("Fraud Prediction: %s\n", isFraud ? "FRAUD" : "LEGITIMATE");
         System.out.printf("Fraud Probability: %.2f%% (%.4f)\n", fraudProb * 100, fraudProb);
