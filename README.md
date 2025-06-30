@@ -10,6 +10,9 @@ This project implements a real-time fraud detection backend service using Spring
 - Rate limiting based on client IP and session.
 - Real-time transaction status updates via Kafka and SSE.
 - Session management and client IP tracking for enhanced fraud prevention.
+- Geolocation to calculate distance between transactions using haversine formula
+- Fraud prediction using binary logistic regression model using features such as amount, location, time, and transaction frequency.
+- Smile binary logistic regression library to predict if a transaction
 
 ## Tech stack
 - Java 17+
@@ -18,6 +21,8 @@ This project implements a real-time fraud detection backend service using Spring
 - Redis via Spring Data Redis
 - Jackson JSON serialization
 - Server side events for realtime updates
+- Smile ML
+- Geolocation tools
 
 ## Prerequisites
 - Java Development Kit (JDK) 17 or later
