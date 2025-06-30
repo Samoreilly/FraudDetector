@@ -3,6 +3,7 @@ package fraud.fraud.services;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import fraud.fraud.AI.LogisticRegressionTraining;
 import fraud.fraud.DTO.TransactionRequest;
+import fraud.fraud.entitys.Threat;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -47,28 +48,32 @@ public class TransactionService {
         return duration.getSeconds() >= 10;
     }
 
+    public boolean checkFraud(double fraudProb, boolean isFraud, TransactionRequest userData){
+
+        if(isFraud && fraudProb >= .95){
+            userData.setFlagged(Threat.IMMEDIATE);
+            userData.setResult("Your transaction is extremely suspicious and was flagged");
+            kafkaTemplate.send("out-transactions", userData.getId(), userData);
+            return true;
+        }
+        if(isFraud || fraudProb >= .75){
+            userData.setFlagged(Threat.HIGH);
+            userData.setResult("Your transaction was deemed suspicious");
+            kafkaTemplate.send("out-transactions", userData.getId(), userData);
+            return true;
+        }else if(fraudProb >= .45){
+            userData.setFlagged(Threat.MEDIUM);
+            userData.setResult("Your transaction was deemed mildly suspicious");
+            kafkaTemplate.send("out-transactions", userData.getId(), userData);
+
+        }
+        return false;
+    }
+
     public List<TransactionRequest> getTransactions(TransactionRequest userData) throws Exception { // passes into transaction of type TransactionRequest
         String key = userData.getId();
 
-        long currentEpoch = userData.getTime().toEpochSecond(ZoneOffset.UTC);
-        //normalize time to fit into the models time range. As the models time range is around 2024 and input data is in 2025
-        double epochSeconds = 1719650000 + (currentEpoch % 60000);
-        service.trainModel();
-        boolean isFraud = service.predictFraud(Double.parseDouble(userData.getData()),epochSeconds, userData.getLatitude(), userData.getLongitude()); // amount, lat, lng
-        double fraudProb = service.getFraudProbability(Double.parseDouble(userData.getData()), epochSeconds, userData.getLatitude(), userData.getLongitude());
-        System.out.printf("Transaction ID: %s\n", key);
-        System.out.printf("Fraud Prediction: %s\n", isFraud ? "FRAUD" : "LEGITIMATE");
-        System.out.printf("Fraud Probability: %.2f%% (%.4f)\n", fraudProb * 100, fraudProb);
-        String fraudProbString = String.valueOf(fraudProb);
-        userData.setResult(fraudProbString);
-        kafkaTemplate.send("out-transactions", userData.getId(), userData);
-        if (fraudProb > 0.7) {
-            System.out.println("HIGH RISK - Block transaction");
-        } else if (fraudProb > 0.3) {
-            System.out.println("MEDIUM RISK - Additional verification needed");
-        } else {
-            System.out.println("LOW RISK - Approve transaction");
-        }
+
         Long size = redisTemplate.opsForList().size(key);
         userData.setResult("Checking your previous transactions");
         kafkaTemplate.send("out-transactions", userData.getId(), userData);
@@ -144,16 +149,39 @@ public class TransactionService {
 
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
-        return EARTH_RADIUS * c; // Distance in meters
+        return EARTH_RADIUS * c;
     }
     @KafkaListener(topics = "transactions", groupId = "in-transactions", containerFactory = "factory")
     public void transactionPipeline(@Payload TransactionRequest userData) throws Exception {
         userData.setResult("Processing your transaction");
         kafkaTemplate.send("out-transactions", userData.getId(), userData);
         System.out.println(userData);
-        //getTransactions(userData);//retrieve users transactions as a list
-        List<TransactionRequest> transactions = getTransactions(userData);
 
+        long currentEpoch = userData.getTime().toEpochSecond(ZoneOffset.UTC);
+        //normalize time to fit into the models time range. As the models time range is around 2024 and input data is in 2025
+        double epochSeconds = 1719650000 + (currentEpoch % 60000);
+        service.trainModel();
+        boolean isFraud = service.predictFraud(Double.parseDouble(userData.getData()),epochSeconds, userData.getLatitude(), userData.getLongitude()); // amount, lat, lng
+        double fraudProb = service.getFraudProbability(Double.parseDouble(userData.getData()), epochSeconds, userData.getLatitude(), userData.getLongitude());
+
+
+        System.out.printf("Fraud Prediction: %s\n", isFraud ? "FRAUD" : "LEGITIMATE");
+        System.out.printf("Fraud Probability: %.2f%% (%.4f)\n", fraudProb * 100, fraudProb);
+        if (fraudProb > 0.7) {
+            System.out.println("HIGH RISK - Block transaction");
+        } else if (fraudProb > 0.3) {
+            System.out.println("MEDIUM RISK - Additional verification needed");
+        } else {
+            System.out.println("LOW RISK - Approve transaction");
+        }
+        if (checkFraud(fraudProb, isFraud, userData)) {
+            System.out.println("Fraud detected – exiting early from pipeline");
+            return;
+        }
+
+        //getTransactions(userData);
+        // retrieve users transactions as a list
+        List<TransactionRequest> transactions = getTransactions(userData);
         if(!checkTimestamps(userData, transactions) && checkTransactionByLocation(userData)){
             userData.setResult("Too many transactions.. retry again in 5 seconds");
             kafkaTemplate.send("out-transactions",userData.getId(), userData);

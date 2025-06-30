@@ -113,7 +113,6 @@ public class LogisticRegressionTraining {
             }
             featureStds[j] = Math.sqrt(sumSquaredDiffs / features.length);
 
-            // Avoid division by zero
             if (featureStds[j] == 0) {
                 featureStds[j] = 1.0;
             }
@@ -133,7 +132,7 @@ public class LogisticRegressionTraining {
         if (featureMeans == null || featureStds == null) {
             throw new IllegalStateException("Feature normalization parameters not available. Train model first.");
         }
-
+    //This methods normalizes data so 1 input cant affect the models outputt hat much by using the mean of all features
         double[] normalized = new double[input.length];
         for (int i = 0; i < input.length; i++) {
             normalized[i] = (input[i] - featureMeans[i]) / featureStds[i];
@@ -182,7 +181,7 @@ public class LogisticRegressionTraining {
         }
 
         double[] features = {amount, time, latitude, longitude};
-        double[] normalizedFeatures = normalizeInput(features);
+        double[] normalizedFeatures = normalizeInput(features);// to avoid invalid inputs which would possibly lead to fabricated results
         int prediction = model.predict(normalizedFeatures);
 
         return prediction == 1;

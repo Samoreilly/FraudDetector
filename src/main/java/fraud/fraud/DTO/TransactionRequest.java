@@ -1,6 +1,7 @@
 package fraud.fraud.DTO;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import fraud.fraud.entitys.Threat;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
@@ -16,6 +17,7 @@ public class TransactionRequest implements Serializable {
     public Double latitude;
     public Double longitude;
     public int isFraud;
+    public Threat flagged;
 
     public int getIsFraud() {
         return isFraud;
@@ -67,14 +69,22 @@ public class TransactionRequest implements Serializable {
     public Double getLongitude() {
         return longitude;
     }
-
     public void setLongitude(Double lng) {
         this.longitude = lng;
     }
+
+    public Threat isFlagged() {
+        return flagged;
+    }
+
+    public void setFlagged(Threat flagged) {
+        this.flagged = flagged;
+    }
+
     public TransactionRequest() {
 
     }
-    public TransactionRequest(String id, String data, LocalDateTime time, String clientIp, String result,  Double latitude, Double longitude, int isFraud) {
+    public TransactionRequest(String id, String data, LocalDateTime time, String clientIp, String result,  Double latitude, Double longitude, int isFraud, Threat flagged) {
         this.id = id;//0
         this.data = data;//1
         this.time = time;//2
@@ -83,5 +93,6 @@ public class TransactionRequest implements Serializable {
         this.latitude = latitude;//5
         this.longitude = longitude;//6
         this.isFraud = isFraud;//7
+        this.flagged = flagged;
     }
 }
