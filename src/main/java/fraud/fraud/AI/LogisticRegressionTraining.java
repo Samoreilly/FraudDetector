@@ -3,15 +3,13 @@ package fraud.fraud.AI;
 import com.opencsv.CSVReader;
 import org.springframework.stereotype.Service;
 import smile.classification.LogisticRegression;
-import smile.data.DataFrame;
-import smile.io.Read;
 
 import java.io.Reader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 @Service
@@ -19,6 +17,9 @@ public class LogisticRegressionTraining {
 
     private static final String CSV_PATH = "/home/sam-o-reilly/IdeaProjects/FraudDetector/csv/trans.csv";
     private LogisticRegression model;
+
+    private double[] featureMeans;
+    private double[] featureStds;
 
     public static class FraudData {
         public final double[][] features;
@@ -29,7 +30,7 @@ public class LogisticRegressionTraining {
             this.labels = labels;
         }
     }
-
+    //read in csv model data
     public List<String[]> readCsvFile(String filePath) throws Exception {
         Path path = Paths.get(filePath);
         List<String[]> records = new ArrayList<>();
@@ -50,78 +51,153 @@ public class LogisticRegressionTraining {
             throw new IllegalArgumentException("No data provided");
         }
 
-        int dataSize = rawData.size() - 1;
-        double[][] features = new double[dataSize][5];
-        int[] labels = new int[dataSize];
+        List<double[]> validFeatures = new ArrayList<>();
+        List<Integer> validLabels = new ArrayList<>();
 
         for (int i = 1; i < rawData.size(); i++) {
             String[] row = rawData.get(i);
-            int index = i - 1;
 
             try {
-                //split into features which is the data that matters and a label which is the result
-                features[index][0] = Double.parseDouble(row[1]); // amount
-                features[index][1] = Double.parseDouble(row[2]);// time
-                features[index][2] = ipToDouble(row[3]);// client ip
-                features[index][3] = Double.parseDouble(row[4]); // latitude
-                features[index][4] = Double.parseDouble(row[5]); // longitude
+                if (row.length < 6) {
+                    System.err.println("Skipping incomplete row " + i);
+                    continue;
+                }
 
-                labels[index] = Integer.parseInt(row[6]); // isFraud - result
+                double amount = Double.parseDouble(row[1].trim());
+                double time = Double.parseDouble(row[2].trim());
+                double latitude = Double.parseDouble(row[3].trim());
+                double longitude = Double.parseDouble(row[4].trim());
+                int label = Integer.parseInt(row[5].trim());
+
+                validFeatures.add(new double[]{amount, time, latitude, longitude});
+                validLabels.add(label);
 
             } catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
                 System.err.println("Error parsing row " + i + ": " + e.getMessage());
-                System.err.println("Row content: " + java.util.Arrays.toString(row));
-                continue;
+                System.err.println("Row content: " + Arrays.toString(row));
             }
         }
 
+        double[][] features = validFeatures.toArray(new double[validFeatures.size()][]);
+        int[] labels = validLabels.stream().mapToInt(Integer::intValue).toArray();
+
+        features = normalizeFeatures(features);
+
+        System.out.println("processed " + features.length + " valid samples");
+        System.out.println("Feature meanss " + Arrays.toString(featureMeans));
+        System.out.println("Feature stds: " + Arrays.toString(featureStds));
+
         return new FraudData(features, labels);
     }
-    public static double ipToDouble(String ip) {
-        String[] parts = ip.split("\\.");
-        long result = 0;
-        for (int i = 0; i < 4; i++) {
-            result = result << 8;
-            result |= Integer.parseInt(parts[i]);
+
+    private double[][] normalizeFeatures(double[][] features) {
+        if (features.length == 0) return features;
+
+        int numFeatures = features[0].length;
+        featureMeans = new double[numFeatures];
+        featureStds = new double[numFeatures];
+
+        for (int j = 0; j < numFeatures; j++) {
+            double sum = 0;
+            for (int i = 0; i < features.length; i++) {
+                sum += features[i][j];
+            }
+            featureMeans[j] = sum / features.length;
         }
-        return (double) result;
+
+        for (int j = 0; j < numFeatures; j++) {
+            double sumSquaredDiffs = 0;
+            for (int i = 0; i < features.length; i++) {
+                double diff = features[i][j] - featureMeans[j];
+                sumSquaredDiffs += diff * diff;
+            }
+            featureStds[j] = Math.sqrt(sumSquaredDiffs / features.length);
+
+            // Avoid division by zero
+            if (featureStds[j] == 0) {
+                featureStds[j] = 1.0;
+            }
+        }
+
+        double[][] normalizedFeatures = new double[features.length][numFeatures];
+        for (int i = 0; i < features.length; i++) {
+            for (int j = 0; j < numFeatures; j++) {
+                normalizedFeatures[i][j] = (features[i][j] - featureMeans[j]) / featureStds[j];
+            }
+        }
+
+        return normalizedFeatures;
     }
 
+    private double[] normalizeInput(double[] input) {
+        if (featureMeans == null || featureStds == null) {
+            throw new IllegalStateException("Feature normalization parameters not available. Train model first.");
+        }
+
+        double[] normalized = new double[input.length];
+        for (int i = 0; i < input.length; i++) {
+            normalized[i] = (input[i] - featureMeans[i]) / featureStds[i];
+        }
+        return normalized;
+    }
 
     public void trainModel() throws Exception {
         List<String[]> rawData = readCsvFile(CSV_PATH);
         FraudData data = processTransactionData(rawData);
+        System.out.println("Training data summary:");
+        System.out.println("Total samples: " + data.features.length);
 
-        this.model = LogisticRegression.fit(data.features, data.labels);//train with logistic regression
+        int fraudCount = 0;
+        int legitCount = 0;
+        for (int label : data.labels) {
+            if (label == 1) fraudCount++;
+            else legitCount++;
+        }
 
-        System.out.println("Model trained successfully with " + data.features.length + " samples");
+        System.out.println("Fraud samples: " + fraudCount);
+        System.out.println("Legitimate samples: " + legitCount);
+        System.out.println("Class balance: " + (double)fraudCount / data.labels.length);
+
+        this.model = LogisticRegression.fit(data.features, data.labels);
+
+        System.out.println("Model trained successfully!");
+        testModelOnTrainingData(data);
     }
 
+    private void testModelOnTrainingData(FraudData data) {
+        System.out.println("\nTesting model on first 10 training samples:");
+        for (int i = 0; i < Math.min(10, data.features.length); i++) {
+            double[] probabilities = new double[2];
+            int prediction = model.predict(data.features[i]);
+            model.predict(data.features[i], probabilities);
 
+            System.out.printf("Sample %d: Actual=%d, Predicted=%d, Prob=%.3f\n",
+                    i, data.labels[i], prediction, probabilities[1]);
+        }
+    }
 
-    //predict model based off transaction data -- i will add more later
-    public boolean predictFraud(double amount, double time, String clientIp, double latitude, double longitude) {
+    public boolean predictFraud(double amount, double time, double latitude, double longitude) {
         if (model == null) {
             throw new IllegalStateException("Model not trained yet. Call trainModel() first.");
         }
-        double convertedIp = ipToDouble(clientIp);
-        double[] features = {amount, time, convertedIp, latitude, longitude};
-        int prediction = model.predict(features);
 
-        return prediction == 1; // assuming 1 = fraud, 0 = legitimate
+        double[] features = {amount, time, latitude, longitude};
+        double[] normalizedFeatures = normalizeInput(features);
+        int prediction = model.predict(normalizedFeatures);
+
+        return prediction == 1;
     }
 
-    public double getFraudProbability(double amount, double time, String clientIp, double latitude, double longitude) {
+    public double getFraudProbability(double amount, double time, double latitude, double longitude) {
         if (model == null) {
             throw new IllegalStateException("Model not trained yet. Call trainModel() first.");
         }
-        double convertedIp = ipToDouble(clientIp);
 
-        double[] features = {amount,time, convertedIp, latitude, longitude};
+        double[] features = {amount, time, latitude, longitude};
+        double[] normalizedFeatures = normalizeInput(features);
         double[] probabilities = new double[2];
-        model.predict(features, probabilities);
+        model.predict(normalizedFeatures, probabilities);
 
         return probabilities[1];
     }
-
 }
