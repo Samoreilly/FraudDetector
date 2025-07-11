@@ -31,15 +31,17 @@ public class TransactionService {
     private final KafkaTemplate<String, TransactionRequest> kafkaTemplate;
     private final TransactionSecurityCheck transactionSecurityCheck;
     private final LogisticRegressionTraining logisticRegressionTraining;
+    private final ValidateTransactions validateTransactions;
     LogisticRegressionTraining service = new LogisticRegressionTraining();
 
-    public TransactionService(RedisTemplate<String, Object> redisTemplate, LogisticRegressionTraining logisticRegressionTraining, ObjectMapper objectMapper, SetupSse setupSse, KafkaTemplate<String, TransactionRequest>  kafkaTemplate, TransactionSecurityCheck transactionSecurityCheck) {
+    public TransactionService(RedisTemplate<String, Object> redisTemplate, LogisticRegressionTraining logisticRegressionTraining, ObjectMapper objectMapper, SetupSse setupSse, KafkaTemplate<String, TransactionRequest>  kafkaTemplate, TransactionSecurityCheck transactionSecurityCheck, ValidateTransactions validateTransactions) {
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
         this.setupSse = setupSse;
         this.kafkaTemplate = kafkaTemplate;
         this.transactionSecurityCheck = transactionSecurityCheck;
         this.logisticRegressionTraining = logisticRegressionTraining;
+        this.validateTransactions = validateTransactions;
     }
 
     public boolean checkTimestamps(TransactionRequest userData, List<TransactionRequest> validateTimes){
@@ -165,6 +167,21 @@ public class TransactionService {
         kafkaTemplate.send("out-transactions", userData.getId(), userData);
         System.out.println(userData);
 
+        double diff = Math.abs(validateTransactions.averageTransaction(userData) - Double.parseDouble(userData.getData()));
+
+        if(diff > 8000){
+            userData.setFlagged(Threat.IMMEDIATE);
+            userData.setResult("your transaction was marked a huge threat comparing to your average transaction amounts");
+            kafkaTemplate.send("out-transactions", userData.getId(), userData);
+        }else if(diff > 5000){
+            userData.setResult("your transaction was marked a high threat comparing to your average transaction amounts");
+            kafkaTemplate.send("out-transactions", userData.getId(), userData);
+
+            userData.setFlagged(Threat.HIGH);
+        }
+
+
+
         long currentEpoch = userData.getTime().toEpochSecond(ZoneOffset.UTC);
         //normalize time to fit into the models time range. As the models time range is around 2024 and input data is in 2025
         double epochSeconds = 1719650000 + (currentEpoch % 60000);
@@ -183,7 +200,7 @@ public class TransactionService {
             System.out.println("LOW RISK - Approve transaction");
         }
         if (checkFraud(fraudProb, isFraud, userData)) {
-            System.out.println("Fraud detected – exiting early from pipeline");
+            System.out.println("Fraud detected - exiting early from pipeline");
             return;
         }
         //getTransactions(userData);
