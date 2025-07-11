@@ -13,6 +13,9 @@ public class ErrorMessages {
     public static final String INVALID_ITEM = "Invalid";
     public static final String TRANSACTION_SUCCESSFUL = "Transaction completed successfully";
 
+    public static final int IMMEDIATE_THRESHOLD_MET = 8000;
+    public static final int HIGH_THRESHOLD_MET = 5000;
+
     private ErrorMessages() {
 
     }
