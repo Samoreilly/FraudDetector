@@ -1,6 +1,7 @@
 package fraud.fraud.services;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import fraud.fraud.DTO.TransactionRequest;
+import fraud.fraud.ErrorMessages;
 import fraud.fraud.entitys.Threat;
 import net.vpnblocker.api.*;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -31,12 +32,12 @@ public class TransactionSecurityCheck {
     }
     //this method checks the difference between the incoming transaction and the average of there total transactions
     public boolean checkAverageDifference(Double diff, TransactionRequest userData){
-        if(diff > 8000){
+        if(diff > ErrorMessages.IMMEDIATE_THRESHOLD_MET){
             userData.setFlagged(Threat.IMMEDIATE);
             userData.setResult("your transaction was marked a huge threat comparing to your average transaction amounts");
             kafkaTemplate.send("out-transactions", userData.getId(), userData);
             return false;
-        }else if(diff > 5000){
+        }else if(diff > ErrorMessages.HIGH_THRESHOLD_MET){
             userData.setResult("your transaction was marked a high threat comparing to your average transaction amounts");
             kafkaTemplate.send("out-transactions", userData.getId(), userData);
             userData.setFlagged(Threat.HIGH);
