@@ -44,16 +44,6 @@ public class TransactionService {
         this.validateTransactions = validateTransactions;
     }
 
-    public boolean checkTimestamps(TransactionRequest userData, List<TransactionRequest> validateTimes){
-        userData.setResult("Validating your transaction for potential fraud");
-        kafkaTemplate.send("out-transactions", userData.getId(), userData);
-        if(validateTimes == null || validateTimes.isEmpty()){
-            return true;
-        }
-        Duration duration = Duration.between(validateTimes.getFirst().getTime(),userData.getTime());
-        return duration.getSeconds() >= 10;
-    }
-
     public boolean checkFraud(double fraudProb, boolean isFraud, TransactionRequest userData){
 
         if(isFraud && fraudProb >= .95){
@@ -92,7 +82,7 @@ public class TransactionService {
             return null;
         }
         if(size == null || size == 0){
-            redisTemplate.expire(userData.getId(), Duration.ofMinutes(10));//set time to live if doesnt exist
+            redisTemplate.expire(userData.getId(), Duration.ofMinutes(10));//set time to live if it doesnt exist
         }
         List<TransactionRequest> tx = new ArrayList<>();
 
@@ -111,56 +101,6 @@ public class TransactionService {
         return tx;
     }
 
-    public boolean checkTransactionByLocation(TransactionRequest userData){
-        Object transaction = redisTemplate.opsForList().getFirst(userData.getId());
-        if(transaction == null){
-
-            return false;
-        }
-        userData.setResult("Validating latitude and longitude");
-        kafkaTemplate.send("out-transactions", userData.getId(), userData);
-        TransactionRequest trans = objectMapper.convertValue(transaction, TransactionRequest.class);
-
-        Double prevLatitude = trans.getLatitude();
-        Double prevLongitude = trans.getLongitude();
-        Double latitude = userData.getLatitude();
-        Double longitude = userData.getLongitude();
-
-        double distanceInMeters = calculateDistance(latitude, longitude,
-                prevLatitude, prevLongitude);
-
-        Duration duration = Duration.between(trans.getTime(), userData.getTime());
-        long timeDiffSeconds = Math.abs(duration.getSeconds());
-
-        double distanceInKm = distanceInMeters / 1000.0;
-
-        double requiredSpeedKmh = (distanceInKm / timeDiffSeconds) * 3600;
-
-        if(requiredSpeedKmh > 500.0 && timeDiffSeconds > 0){
-            userData.setResult("Suspicious location change detected");
-            kafkaTemplate.send("out-transactions", userData.getId(), userData);
-            System.out.println("Fraud detected - impossible travel speed: " + requiredSpeedKmh + " km/h");
-            return false;
-        }
-
-        System.out.println("Location validation passed - speed: " + requiredSpeedKmh + " km/h");
-        return true;
-    }
-    public double calculateDistance(double startLat, double startLong, double endLat, double endLong) {
-        double EARTH_RADIUS = 6378137.0;
-        double lat1Rad = Math.toRadians(startLat);
-        double lat2Rad = Math.toRadians(endLat);
-        double deltaLatRad = Math.toRadians(endLat - startLat);
-        double deltaLonRad = Math.toRadians(endLong - startLong);
-
-        double a = Math.sin(deltaLatRad / 2) * Math.sin(deltaLatRad / 2) +//haversine formula to calculate distance between two points on earth in metres
-                Math.cos(lat1Rad) * Math.cos(lat2Rad) *
-                        Math.sin(deltaLonRad / 2) * Math.sin(deltaLonRad / 2);
-
-        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-        return EARTH_RADIUS * c;
-    }
     @KafkaListener(topics = "transactions", groupId = "in-transactions", containerFactory = "factory")
     public void transactionPipeline(@Payload TransactionRequest userData) throws Exception {
         userData.setResult("Processing your transaction");
@@ -169,17 +109,9 @@ public class TransactionService {
 
         double diff = Math.abs(validateTransactions.averageTransaction(userData) - Double.parseDouble(userData.getData()));
 
-        if(diff > 8000){
-            userData.setFlagged(Threat.IMMEDIATE);
-            userData.setResult("your transaction was marked a huge threat comparing to your average transaction amounts");
-            kafkaTemplate.send("out-transactions", userData.getId(), userData);
-        }else if(diff > 5000){
-            userData.setResult("your transaction was marked a high threat comparing to your average transaction amounts");
-            kafkaTemplate.send("out-transactions", userData.getId(), userData);
-
-            userData.setFlagged(Threat.HIGH);
+        if (!transactionSecurityCheck.checkAverageDifference(diff, userData)) {
+            return;
         }
-
 
 
         long currentEpoch = userData.getTime().toEpochSecond(ZoneOffset.UTC);
@@ -206,7 +138,7 @@ public class TransactionService {
         //getTransactions(userData);
         // retrieve users transactions as a list
         List<TransactionRequest> transactions = getTransactions(userData);
-        if(!checkTimestamps(userData, transactions) && checkTransactionByLocation(userData)){
+        if(!validateTransactions.checkTimestamps(userData, transactions) && validateTransactions.checkTransactionByLocation(userData)){
             userData.setResult("Too many transactions.. retry again in 5 seconds");
             kafkaTemplate.send("out-transactions",userData.getId(), userData);
             System.out.println("sent too early");
@@ -248,7 +180,6 @@ public class TransactionService {
                 String.valueOf(userData.getLongitude()),
                 val
         };
-
         try (CSVWriter writer = new CSVWriter( new FileWriter(CSV_PATH, true),
                 CSVWriter.DEFAULT_SEPARATOR,
                 CSVWriter.NO_QUOTE_CHARACTER,
