@@ -19,7 +19,7 @@ public class RateLimiting {
     private final Duration WINDOW = Duration.ofMinutes(1);
 
     public RateLimiting(@Qualifier("integerRedisTemplate") RedisTemplate<String, Integer> redisTemplate) {
-        this.val= redisTemplate.opsForValue();
+        this.val = redisTemplate.opsForValue();
     }
 
     public boolean isAllowed(String key){
