@@ -4,7 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.opencsv.CSVWriter;
 import fraud.fraud.AI.LogisticRegressionTraining;
 import fraud.fraud.DTO.TransactionRequest;
+import fraud.fraud.Notifications.NotificationService;
 import fraud.fraud.entitys.Threat;
+import fraud.fraud.interfaces.TransactionHandler;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -23,7 +25,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 @Service
-public class TransactionService {
+public class TransactionService implements TransactionHandler {
 
     private final RedisTemplate<String, Object> redisTemplate;
     private final ObjectMapper objectMapper;
@@ -32,9 +34,11 @@ public class TransactionService {
     private final TransactionSecurityCheck transactionSecurityCheck;
     private final LogisticRegressionTraining logisticRegressionTraining;
     private final ValidateTransactions validateTransactions;
+    private final NotificationService notificationService;
+    private final TransactionPipeline pipeline;
     LogisticRegressionTraining service = new LogisticRegressionTraining();
 
-    public TransactionService(RedisTemplate<String, Object> redisTemplate, LogisticRegressionTraining logisticRegressionTraining, ObjectMapper objectMapper, SetupSse setupSse, KafkaTemplate<String, TransactionRequest>  kafkaTemplate, TransactionSecurityCheck transactionSecurityCheck, ValidateTransactions validateTransactions) {
+    public TransactionService(RedisTemplate<String, Object> redisTemplate, LogisticRegressionTraining logisticRegressionTraining, ObjectMapper objectMapper, SetupSse setupSse, KafkaTemplate<String, TransactionRequest>  kafkaTemplate, TransactionSecurityCheck transactionSecurityCheck, ValidateTransactions validateTransactions, NotificationService  notificationService, TransactionPipeline pipeline) {
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
         this.setupSse = setupSse;
@@ -42,41 +46,17 @@ public class TransactionService {
         this.transactionSecurityCheck = transactionSecurityCheck;
         this.logisticRegressionTraining = logisticRegressionTraining;
         this.validateTransactions = validateTransactions;
+        this.notificationService = notificationService;
+        this.pipeline = pipeline;
     }
 
-    public boolean checkFraud(double fraudProb, boolean isFraud, TransactionRequest userData){
-
-        if(isFraud && fraudProb >= .95){
-            userData.setFlagged(Threat.IMMEDIATE);
-            userData.setResult("Your transaction is extremely suspicious and was flagged");
-            kafkaTemplate.send("out-transactions", userData.getId(), userData);
-            return true;
-        }
-        if(isFraud || fraudProb >= .75){
-            userData.setFlagged(Threat.HIGH);
-            userData.setResult("Your transaction was deemed suspicious");
-            kafkaTemplate.send("out-transactions", userData.getId(), userData);
-            return true;
-        }else if(fraudProb >= .45){
-            userData.setFlagged(Threat.MEDIUM);
-            userData.setResult("Your transaction was deemed mildly suspicious");
-            kafkaTemplate.send("out-transactions", userData.getId(), userData);
-            return false;
-        }else{
-            userData.setFlagged(Threat.LOW);
-            userData.setResult("Your transaction cleared fraud check");
-            kafkaTemplate.send("out-transactions", userData.getId(), userData);
-        }
-        return false;
-    }
 
     public List<TransactionRequest> getTransactions(TransactionRequest userData) throws Exception { // passes into transaction of type TransactionRequest
         String key = userData.getId();
 
 
         Long size = redisTemplate.opsForList().size(key);
-        userData.setResult("Checking your previous transactions");
-        kafkaTemplate.send("out-transactions", userData.getId(), userData);
+        notificationService.sendNotification(userData, "Checking your previous transactions");
         List<Object> transactions = redisTemplate.opsForList().range(userData.getId(),0,-1);//gets userdata by id by looking from start to end of list
         if(transactions == null){
             return null;
@@ -103,8 +83,7 @@ public class TransactionService {
 
     @KafkaListener(topics = "transactions", groupId = "in-transactions", containerFactory = "factory")
     public void transactionPipeline(@Payload TransactionRequest userData) throws Exception {
-        userData.setResult("Processing your transaction");
-        kafkaTemplate.send("out-transactions", userData.getId(), userData);
+        notificationService.sendNotification(userData, "Processing your transaction");
         System.out.println(userData);
 
         double diff = Math.abs(validateTransactions.averageTransaction(userData) - Double.parseDouble(userData.getData()));
@@ -124,47 +103,41 @@ public class TransactionService {
 
         System.out.printf("Fraud Prediction: %s\n", isFraud ? "FRAUD" : "LEGITIMATE");
         System.out.printf("Fraud Probability: %.2f%% (%.4f)\n", fraudProb * 100, fraudProb);
-        if (fraudProb > 0.7) {
-            System.out.println("HIGH RISK - Block transaction");
-        } else if (fraudProb > 0.3) {
-            System.out.println("MEDIUM RISK - Additional verification needed");
-        } else {
-            System.out.println("LOW RISK - Approve transaction");
-        }
-        if (checkFraud(fraudProb, isFraud, userData)) {
+        if(transactionSecurityCheck.checkFraud(fraudProb, isFraud, userData)) {
             System.out.println("Fraud detected - exiting early from pipeline");
             return;
         }
         //getTransactions(userData);
         // retrieve users transactions as a list
         List<TransactionRequest> transactions = getTransactions(userData);
-        if(!validateTransactions.checkTimestamps(userData, transactions) && validateTransactions.checkTransactionByLocation(userData)){
-            userData.setResult("Too many transactions.. retry again in 5 seconds");
-            kafkaTemplate.send("out-transactions",userData.getId(), userData);
-            System.out.println("sent too early");
-            return;
+        boolean result = pipeline.process(userData, transactions);
+        if(result){
+            saveTransaction(userData, isFraud);//save transaction
+        }else{
+            notificationService.sendNotification(userData, "Transaction pipeline error");
         }
-        saveTransaction(userData, isFraud);//save transaction
+//        if(!valida.checkTimestamps(userData, transactions) && validateTransactions.checkTransactionByLocation(userData)){
+//            notificationService.sendNotification(userData, "Too many transactions. retry again in 5 seconds");
+//            System.out.println("sent too early");
+//            return;
+//        }
         System.out.println("Cached");
 
     }
     public void saveTransaction(TransactionRequest userData, boolean isFraud){
         redisTemplate.opsForList().leftPush(userData.getId(), userData);
-        userData.setResult("Caching your transaction");
-        kafkaTemplate.send("out-transactions", userData.getId(), userData);
+        notificationService.sendNotification(userData, "Caching your transaction");
 
         try {
-            userData.setResult("Successful");
-            kafkaTemplate.send("out-transactions",userData.getId(), userData);
+            notificationService.sendNotification(userData, "Successful transaction");
             addModel(userData, isFraud);// add data to csv to build improve dataset
             System.out.println("Transaction sent successfully");
         } catch (Exception e) {
             System.err.println("Failed to send transaction: " + e.getMessage());
-            userData.setResult("Error processing transaction");
-            kafkaTemplate.send("out-transactions",userData.getId(), userData);
+            notificationService.sendNotification(userData, "Error processing transaction");
         }
     }
-    public void addModel(TransactionRequest userData, boolean isFraud) throws Exception {
+    public void addModel(TransactionRequest userData, boolean isFraud) throws IOException {
         String CSV_PATH = "/home/sam-o-reilly/IdeaProjects/FraudDetector/csv/trans.csv";
 
         long currentEpoch = userData.getTime().toEpochSecond(ZoneOffset.UTC);

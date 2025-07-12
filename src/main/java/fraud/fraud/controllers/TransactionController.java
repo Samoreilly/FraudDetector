@@ -3,11 +3,9 @@ package fraud.fraud.controllers;
 import fraud.fraud.DTO.TransactionRequest;
 import fraud.fraud.ErrorMessages;
 import fraud.fraud.Monitoring.CustomMetricsService;
+import fraud.fraud.Notifications.NotificationService;
 import fraud.fraud.RateLimitExceededException;
-import fraud.fraud.services.RateLimiting;
-import fraud.fraud.services.SetupSse;
-import fraud.fraud.services.TransactionSecurityCheck;
-import fraud.fraud.services.TransactionService;
+import fraud.fraud.services.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
@@ -33,13 +31,17 @@ public class TransactionController {
     private final SetupSse setupSse;
     private final CustomMetricsService customMetricsService;
     private final TransactionSecurityCheck transactionSecurityCheck;
+    private final VpnValidation  vpnValidation;
+    private final NotificationService  notificationService;
 
-    public TransactionController(RateLimiting rateLimiting, KafkaTemplate<String, TransactionRequest> kafkaTemplate, SetupSse setupSse, CustomMetricsService customMetricsService, TransactionSecurityCheck transactionSecurityCheck) {
+    public TransactionController(RateLimiting rateLimiting, KafkaTemplate<String, TransactionRequest> kafkaTemplate, SetupSse setupSse, CustomMetricsService customMetricsService, TransactionSecurityCheck transactionSecurityCheck,  VpnValidation vpnValidation, NotificationService notificationService) {
         this.rateLimiting = rateLimiting;
         this.kafkaTemplate = kafkaTemplate;
         this.setupSse = setupSse;
         this.customMetricsService = customMetricsService;
         this.transactionSecurityCheck = transactionSecurityCheck;
+        this.vpnValidation = vpnValidation;
+        this.notificationService = notificationService;
     }
 
 
@@ -61,20 +63,18 @@ public class TransactionController {
 
         System.out.println("Transaction endpoint - Session ID: " + sessionId);
 
-        if (rateLimiting.isAllowed(key) && !transactionSecurityCheck.checkVpn(ip)) {
+        if (rateLimiting.isAllowed(key) && !vpnValidation.checkVpn(ip)) {
             System.out.println("IP KEY"+ key);
             transactionInfo.setClientIp(ip);
             transactionInfo.setId(sessionId);
-            transactionInfo.setResult("Not a vpn");
 
-            kafkaTemplate.send("out-transactions", transactionInfo.getId(), transactionInfo);
+            notificationService.sendNotification(transactionInfo, "Not a vpn");
             kafkaTemplate.send("transactions",transactionInfo);
 
             return ResponseEntity.accepted().body("Transaction submitted");
-        } else {
+        }else{
 
-            transactionInfo.setResult("Is a vpn");
-            kafkaTemplate.send("out-transactions", transactionInfo.getId(), transactionInfo);
+            notificationService.sendNotification(transactionInfo, "Vpn detected");
             customMetricsService.incrementRateLimitedRequests();
             throw new RateLimitExceededException(ErrorMessages.RATE_LIMIT_EXCEEDED);
         }

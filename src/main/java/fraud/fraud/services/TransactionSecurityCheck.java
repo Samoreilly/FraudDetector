@@ -2,12 +2,15 @@ package fraud.fraud.services;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import fraud.fraud.DTO.TransactionRequest;
 import fraud.fraud.ErrorMessages;
+import fraud.fraud.Notifications.NotificationService;
 import fraud.fraud.entitys.Threat;
+import fraud.fraud.interfaces.Handler;
 import net.vpnblocker.api.*;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.util.List;
 
 //https://github.com/faiqsohail/Java-VPNDetection
 
@@ -15,21 +18,16 @@ import java.io.IOException;
 public class TransactionSecurityCheck {
 
     private final KafkaTemplate<String, TransactionRequest> kafkaTemplate;
-    public TransactionSecurityCheck(KafkaTemplate<String, TransactionRequest> kafkaTemplate) {
+    private final NotificationService notificationService;
+    private final TransactionPipeline pipeline;
+
+    public TransactionSecurityCheck(KafkaTemplate<String, TransactionRequest> kafkaTemplate, NotificationService notificationService, List<Handler> handlers) {
         this.kafkaTemplate = kafkaTemplate;
-    }
-    VPNDetection vpnDetection = new VPNDetection();
+        this.notificationService = notificationService;
+        this.pipeline = new TransactionPipeline(handlers);
 
-    public boolean checkVpn(String ip) throws IOException {
-
-        if(ip != null) {
-            Boolean isVPN = new VPNDetection().getResponse(ip).hostip;
-            System.out.println("IS VPN " + isVPN);
-            return isVPN;
-        }else{
-            return false;
-        }
     }
+
     //this method checks the difference between the incoming transaction and the average of there total transactions
     public boolean checkAverageDifference(Double diff, TransactionRequest userData){
         if(diff > ErrorMessages.IMMEDIATE_THRESHOLD_MET){
@@ -45,5 +43,26 @@ public class TransactionSecurityCheck {
         }else{
             return true;
         }
+    }
+    public boolean checkFraud(double fraudProb, boolean isFraud, TransactionRequest userData){
+
+        if(isFraud && fraudProb >= .90){
+            userData.setFlagged(Threat.IMMEDIATE);
+            notificationService.sendNotification(userData, "Your transaction is extremely suspicious and was flagged");
+            return true;
+        }
+        if(isFraud || fraudProb >= .75){
+            userData.setFlagged(Threat.HIGH);
+            notificationService.sendNotification(userData, "Your transaction was deemed suspicious");
+            return false;
+        }else if(fraudProb >= .45){
+            userData.setFlagged(Threat.MEDIUM);
+            notificationService.sendNotification(userData, "Your transaction was deemed mildly suspicious");
+            return false;
+        }else{
+            userData.setFlagged(Threat.LOW);
+            notificationService.sendNotification(userData, "Your transaction cleared fraud check");
+        }
+        return false;
     }
 }
