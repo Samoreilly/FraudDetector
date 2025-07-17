@@ -2,6 +2,7 @@ package fraud.fraud.services;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.opencsv.CSVWriter;
+import fraud.fraud.AI.AnomalyTraining;
 import fraud.fraud.AI.LogisticRegressionTraining;
 import fraud.fraud.DTO.TransactionRequest;
 import fraud.fraud.Notifications.NotificationService;
@@ -14,7 +15,6 @@ import org.springframework.kafka.support.SendResult;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Service;
 import smile.io.CSV;
-
 import java.io.FileWriter;
 import java.io.IOException;
 import java.time.Duration;
@@ -36,9 +36,10 @@ public class TransactionService implements TransactionHandler {
     private final ValidateTransactions validateTransactions;
     private final NotificationService notificationService;
     private final TransactionPipeline pipeline;
+    private final AnomalyTraining anomalyTraining;
     LogisticRegressionTraining service = new LogisticRegressionTraining();
 
-    public TransactionService(RedisTemplate<String, Object> redisTemplate, LogisticRegressionTraining logisticRegressionTraining, ObjectMapper objectMapper, SetupSse setupSse, KafkaTemplate<String, TransactionRequest>  kafkaTemplate, TransactionSecurityCheck transactionSecurityCheck, ValidateTransactions validateTransactions, NotificationService  notificationService, TransactionPipeline pipeline) {
+    public TransactionService(RedisTemplate<String, Object> redisTemplate, LogisticRegressionTraining logisticRegressionTraining, ObjectMapper objectMapper, SetupSse setupSse, KafkaTemplate<String, TransactionRequest>  kafkaTemplate, TransactionSecurityCheck transactionSecurityCheck, ValidateTransactions validateTransactions, NotificationService  notificationService, TransactionPipeline pipeline, AnomalyTraining anomalyTraining) {
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
         this.setupSse = setupSse;
@@ -48,6 +49,7 @@ public class TransactionService implements TransactionHandler {
         this.validateTransactions = validateTransactions;
         this.notificationService = notificationService;
         this.pipeline = pipeline;
+        this.anomalyTraining = anomalyTraining;
     }
 
 
@@ -83,6 +85,9 @@ public class TransactionService implements TransactionHandler {
 
     @KafkaListener(topics = "transactions", groupId = "in-transactions", containerFactory = "factory")
     public void transactionPipeline(@Payload TransactionRequest userData) throws Exception {
+
+        anomalyTraining.anomalyPipeline(userData);
+
         notificationService.sendNotification(userData, "Processing your transaction");
         System.out.println(userData);
 
