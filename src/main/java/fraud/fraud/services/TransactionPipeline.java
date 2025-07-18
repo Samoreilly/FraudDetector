@@ -11,7 +11,7 @@ public class TransactionPipeline {
 
     private final Handler firstHandler;
 
-    public TransactionPipeline(List<Handler> handlers){
+    public TransactionPipeline(List<Handler> handlers) throws Exception {
 
         if (handlers == null || handlers.isEmpty()) {
             throw new IllegalArgumentException("Handlers list cannot be null or empty");
@@ -22,7 +22,7 @@ public class TransactionPipeline {
         this.firstHandler = handlers.get(0);
 
     }
-    public boolean process(TransactionRequest request, List<TransactionRequest> previousTransactions) {
+    public boolean process(TransactionRequest request, List<TransactionRequest> previousTransactions) throws Exception {
         return firstHandler.handle(request, previousTransactions);
     }
 }

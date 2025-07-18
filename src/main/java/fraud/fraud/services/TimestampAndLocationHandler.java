@@ -19,8 +19,8 @@ public class TimestampAndLocationHandler implements Handler {
         this.notificationService = notificationService;
     }
     @Override
-    public boolean handle(TransactionRequest userData, List<TransactionRequest> validateTimes){
-
+    public boolean handle(TransactionRequest userData, List<TransactionRequest> validateTimes) throws Exception {
+        System.out.println("TimestampAndLocationHandler - handle");
         boolean location = validator.checkTransactionByLocation(userData), timestamps = validator.checkTimestamps(userData, validateTimes);
 
         if(location && !timestamps){
