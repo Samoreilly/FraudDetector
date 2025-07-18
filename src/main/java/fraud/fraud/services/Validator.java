@@ -63,6 +63,7 @@ public class Validator{
             userData.setResult("Suspicious location change detected");
             kafkaTemplate.send("out-transactions", userData.getId(), userData);
             System.out.println("Fraud detected - impossible travel speed: " + requiredSpeedKmh + " km/h");
+            System.out.println("FAILLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLEDDDDDDDDDDDDDDDDD");
             return false;
         }
 

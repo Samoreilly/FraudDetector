@@ -21,29 +21,14 @@ public class TransactionSecurityCheck {
     private final NotificationService notificationService;
     private final TransactionPipeline pipeline;
 
-    public TransactionSecurityCheck(KafkaTemplate<String, TransactionRequest> kafkaTemplate, NotificationService notificationService, List<Handler> handlers) {
+    public TransactionSecurityCheck(KafkaTemplate<String, TransactionRequest> kafkaTemplate, NotificationService notificationService, List<Handler> handlers) throws Exception {
         this.kafkaTemplate = kafkaTemplate;
         this.notificationService = notificationService;
         this.pipeline = new TransactionPipeline(handlers);
 
     }
 
-    //this method checks the difference between the incoming transaction and the average of there total transactions
-    public boolean checkAverageDifference(Double diff, TransactionRequest userData){
-        if(diff > ErrorMessages.IMMEDIATE_THRESHOLD_MET){
-            userData.setFlagged(Threat.IMMEDIATE);
-            userData.setResult("your transaction was marked a huge threat comparing to your average transaction amounts");
-            kafkaTemplate.send("out-transactions", userData.getId(), userData);
-            return false;
-        }else if(diff > ErrorMessages.HIGH_THRESHOLD_MET){
-            userData.setResult("your transaction was marked a high threat comparing to your average transaction amounts");
-            kafkaTemplate.send("out-transactions", userData.getId(), userData);
-            userData.setFlagged(Threat.HIGH);
-            return true;
-        }else{
-            return true;
-        }
-    }
+
     public boolean checkFraud(double fraudProb, boolean isFraud, TransactionRequest userData){
 
         if(isFraud && fraudProb >= .90){

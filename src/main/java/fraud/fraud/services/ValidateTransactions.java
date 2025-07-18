@@ -22,12 +22,14 @@ public class ValidateTransactions {
         this.kafkaTemplate = kafkaTemplate;
     }
 
-    public Double averageTransaction(TransactionRequest transactionRequest) {
+    public Double averageTransaction(TransactionRequest transactionRequest) throws Exception {
 
-        List<Object> transactions = redisTemplate.opsForList().range(transactionRequest.getId(),0,-1);
+        List<Object> transactions = redisTemplate.opsForList().range(transactionRequest.getId(), 0 , -1);
         int val = 0;
         int total = 0;
+
         if(transactions.isEmpty() || transactions.getFirst() == null)return null;
+
         for(Object transaction : transactions) {
             try {
                 TransactionRequest tr = objectMapper.convertValue(transaction, TransactionRequest.class);

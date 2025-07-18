@@ -91,11 +91,10 @@ public class TransactionService implements TransactionHandler {
         notificationService.sendNotification(userData, "Processing your transaction");
         System.out.println(userData);
 
-        double diff = Math.abs(validateTransactions.averageTransaction(userData) - Double.parseDouble(userData.getData()));
 
-        if (!transactionSecurityCheck.checkAverageDifference(diff, userData)) {
-            return;
-        }
+//        if (!transactionSecurityCheck.checkAverageDifference(diff, userData)) {
+//            return;
+//        }
 
 
         long currentEpoch = userData.getTime().toEpochSecond(ZoneOffset.UTC);
@@ -116,6 +115,7 @@ public class TransactionService implements TransactionHandler {
         // retrieve users transactions as a list
         List<TransactionRequest> transactions = getTransactions(userData);
         boolean result = pipeline.process(userData, transactions);
+        System.out.println(result + "-----------------------HANDLER RESULT");
         if(result){
             saveTransaction(userData, isFraud);//save transaction
         }else{
