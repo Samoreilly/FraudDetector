@@ -1,5 +1,6 @@
 package fraud.fraud.controllers;
 
+import fraud.fraud.AI.NeuralNetworkManager;
 import fraud.fraud.DTO.TransactionRequest;
 import fraud.fraud.ErrorMessages;
 import fraud.fraud.Monitoring.CustomMetricsService;
@@ -33,8 +34,9 @@ public class TransactionController {
     private final TransactionSecurityCheck transactionSecurityCheck;
     private final VpnValidation  vpnValidation;
     private final NotificationService  notificationService;
+    private final NeuralNetworkManager  neuralNetworkManager;
 
-    public TransactionController(RateLimiting rateLimiting, KafkaTemplate<String, TransactionRequest> kafkaTemplate, SetupSse setupSse, CustomMetricsService customMetricsService, TransactionSecurityCheck transactionSecurityCheck,  VpnValidation vpnValidation, NotificationService notificationService) {
+    public TransactionController(RateLimiting rateLimiting, KafkaTemplate<String, TransactionRequest> kafkaTemplate, SetupSse setupSse, CustomMetricsService customMetricsService, TransactionSecurityCheck transactionSecurityCheck,  VpnValidation vpnValidation, NotificationService notificationService, NeuralNetworkManager neuralNetworkManager) {
         this.rateLimiting = rateLimiting;
         this.kafkaTemplate = kafkaTemplate;
         this.setupSse = setupSse;
@@ -42,15 +44,19 @@ public class TransactionController {
         this.transactionSecurityCheck = transactionSecurityCheck;
         this.vpnValidation = vpnValidation;
         this.notificationService = notificationService;
+        this.neuralNetworkManager = neuralNetworkManager;
     }
 
 
     @PostMapping("/tr")
-    public ResponseEntity<String> transaction(@RequestBody TransactionRequest transactionInfo, HttpServletRequest request, @AuthenticationPrincipal OAuth2User principal) throws IOException {
+    public ResponseEntity<String> transaction(@RequestBody TransactionRequest transactionInfo, HttpServletRequest request, @AuthenticationPrincipal OAuth2User principal) throws Exception {
 
         if(principal == null){
             return ResponseEntity.status(401).body("Unauthorized");
         }
+
+        neuralNetworkManager.initModel();// for testing
+
 
         customMetricsService.incrementTotalApiRequests();
         String ip = getClientIp(request);
