@@ -2,6 +2,7 @@ package fraud.fraud.services;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import fraud.fraud.DTO.TransactionRequest;
+import fraud.fraud.Notifications.NotificationService;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
@@ -15,11 +16,13 @@ public class ValidateTransactions {
     private final ObjectMapper objectMapper;
     private final KafkaTemplate<String, TransactionRequest> kafkaTemplate;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final NotificationService notificationService;
 
-    public ValidateTransactions(RedisTemplate<String, Object> redisTemplate, ObjectMapper objectMapper, KafkaTemplate<String,  TransactionRequest> kafkaTemplate) {
+    public ValidateTransactions(RedisTemplate<String, Object> redisTemplate, ObjectMapper objectMapper, KafkaTemplate<String,  TransactionRequest> kafkaTemplate, NotificationService notificationService) {
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
         this.kafkaTemplate = kafkaTemplate;
+        this.notificationService = notificationService;
     }
 
     public Double averageTransaction(TransactionRequest transactionRequest) throws Exception {
@@ -43,7 +46,7 @@ public class ValidateTransactions {
         double average = (double) val / total;
 
         transactionRequest.setResult("Users average transaction = "+ String.format("%.2f", average));
-        kafkaTemplate.send("out-transactions", transactionRequest.getId(), transactionRequest);
+        notificationService.sendNotification(transactionRequest, transactionRequest.getResult());
         return average;
     }
 
