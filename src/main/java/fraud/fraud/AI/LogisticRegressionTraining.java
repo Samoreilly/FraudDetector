@@ -16,10 +16,11 @@ import java.util.List;
 public class LogisticRegressionTraining {
 
     private static final String CSV_PATH = "/home/sam-o-reilly/IdeaProjects/FraudDetector/csv/trans.csv";
-    private LogisticRegression model;
+
 
     private double[] featureMeans;
     private double[] featureStds;
+    private LogisticRegression model;
 
     public static class FraudData {
         public final double[][] features;

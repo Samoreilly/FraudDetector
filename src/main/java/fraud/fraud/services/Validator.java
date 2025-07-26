@@ -2,6 +2,7 @@ package fraud.fraud.services;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import fraud.fraud.DTO.TransactionRequest;
+import fraud.fraud.Notifications.NotificationService;
 import fraud.fraud.interfaces.Handler;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -18,16 +19,17 @@ public class Validator{
     private final KafkaTemplate<String, TransactionRequest> kafkaTemplate;
     private final RedisTemplate<String, Object> redisTemplate;
     private final ValidateTransactions validateTransactions;
+    private final NotificationService notificationService;
 
-    public Validator(RedisTemplate<String, Object> redisTemplate, ObjectMapper objectMapper, KafkaTemplate<String,  TransactionRequest> kafkaTemplate, ValidateTransactions validateTransactions) {
+    public Validator(RedisTemplate<String, Object> redisTemplate, ObjectMapper objectMapper, KafkaTemplate<String,  TransactionRequest> kafkaTemplate, ValidateTransactions validateTransactions, NotificationService notificationService) {
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
         this.kafkaTemplate = kafkaTemplate;
         this.validateTransactions = validateTransactions;
+        this.notificationService = notificationService;
     }
     public boolean checkTimestamps(TransactionRequest userData, List<TransactionRequest> validateTimes){ // restructered - moved from TransactionService.java to get away from 1 god class(transaction service)
-        userData.setResult("Validating your transaction for potential fraud");
-        kafkaTemplate.send("out-transactions", userData.getId(), userData);
+        notificationService.sendNotification(userData, "Validating your transaction for potential fraud");
         if(validateTimes == null || validateTimes.isEmpty()){
             return true;
         }
@@ -40,8 +42,7 @@ public class Validator{
 
             return false;
         }
-        userData.setResult("Validating latitude and longitude");
-        kafkaTemplate.send("out-transactions", userData.getId(), userData);
+        notificationService.sendNotification(userData, "Validating latitude and longitude");
         TransactionRequest trans = objectMapper.convertValue(transaction, TransactionRequest.class);
 
         Double prevLatitude = trans.getLatitude();
@@ -60,8 +61,7 @@ public class Validator{
         double requiredSpeedKmh = (distanceInKm / timeDiffSeconds) * 3600;
 
         if(requiredSpeedKmh > 500.0 && timeDiffSeconds > 0){
-            userData.setResult("Suspicious location change detected");
-            kafkaTemplate.send("out-transactions", userData.getId(), userData);
+            notificationService.sendNotification(userData, "Suspicious transaction");
             System.out.println("Fraud detected - impossible travel speed: " + requiredSpeedKmh + " km/h");
             System.out.println("FAILLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLEDDDDDDDDDDDDDDDDD");
             return false;

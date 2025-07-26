@@ -92,9 +92,6 @@ public class TransactionService implements TransactionHandler {
         System.out.println(userData);
 
 
-//        if (!transactionSecurityCheck.checkAverageDifference(diff, userData)) {
-//            return;
-//        }
 
 
         long currentEpoch = userData.getTime().toEpochSecond(ZoneOffset.UTC);
@@ -111,7 +108,6 @@ public class TransactionService implements TransactionHandler {
             System.out.println("Fraud detected - exiting early from pipeline");
             return;
         }
-        //getTransactions(userData);
         // retrieve users transactions as a list
         List<TransactionRequest> transactions = getTransactions(userData);
         boolean result = pipeline.process(userData, transactions);
@@ -121,11 +117,6 @@ public class TransactionService implements TransactionHandler {
         }else{
             notificationService.sendNotification(userData, "Transaction pipeline error");
         }
-//        if(!valida.checkTimestamps(userData, transactions) && validateTransactions.checkTransactionByLocation(userData)){
-//            notificationService.sendNotification(userData, "Too many transactions. retry again in 5 seconds");
-//            System.out.println("sent too early");
-//            return;
-//        }
         System.out.println("Cached");
 
     }
