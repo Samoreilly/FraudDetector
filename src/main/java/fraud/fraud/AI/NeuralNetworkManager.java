@@ -1,11 +1,20 @@
 package fraud.fraud.AI;
 
 import fraud.fraud.services.TransactionService;
+import org.deeplearning4j.nn.conf.MultiLayerConfiguration;
+import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
+import org.deeplearning4j.nn.conf.layers.DenseLayer;
+import org.deeplearning4j.nn.conf.layers.OutputLayer;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
+import org.deeplearning4j.nn.weights.WeightInit;
+import org.nd4j.evaluation.classification.Evaluation;
+import org.nd4j.linalg.activations.Activation;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.dataset.api.preprocessor.DataNormalization;
 import org.nd4j.linalg.dataset.api.preprocessor.NormalizerStandardize;
 import org.nd4j.linalg.factory.Nd4j;
+import org.nd4j.linalg.learning.config.Adam;
+import org.nd4j.linalg.lossfunctions.LossFunctions;
 import org.nd4j.linalg.util.FeatureUtil;
 import org.nd4j.shade.guava.primitives.Ints;
 import org.nd4j.linalg.dataset.DataSet;
@@ -23,8 +32,24 @@ public class NeuralNetworkManager {
     public NeuralNetworkManager(LogisticRegressionTraining logisticRegressionTraining) {
         this.logisticRegressionTraining = logisticRegressionTraining;
     }
+    MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
+            .seed(123)  // for reproducibility
+            .updater(new Adam(0.001))  // optimizer and learning rate
+            .list()
+            .layer(new DenseLayer.Builder()
+                    .nIn(5)//features
+                    .nOut(50)//neurons
+                    .activation(Activation.RELU)
+                    .build())
+            .layer(new OutputLayer.Builder(LossFunctions.LossFunction.NEGATIVELOGLIKELIHOOD)
+                    .nIn(50)
+                    .nOut(2)//classes - fraud or no fraud
+                    .activation(Activation.SOFTMAX)
+                    .build())
+            .build();
 
-    public void createDataset() throws Exception {
+
+    public DataSet createDataset() throws Exception {
 
         List<String[]> list = logisticRegressionTraining.readCsvFile(CSV_PATH);//get data
 
@@ -34,16 +59,32 @@ public class NeuralNetworkManager {
         int[] label = fraudData.labels;
 
 
-        INDArray labels= FeatureUtil.toOutcomeMatrix(label, 2);
+        INDArray labels = FeatureUtil.toOutcomeMatrix(label, 2);
 
         DataSet dataset = new DataSet(arr, labels);//create dataset
         DataNormalization normalizer = new NormalizerStandardize();//normalise data to get rid of extremely high high's and low low's
         normalizer.fit(dataset);
         normalizer.transform(dataset);
+        return dataset;
 
     }
-    public void initModel(){
+    public void initModel() throws Exception {
+        DataSet dataSet = createDataset();//initilize and normalise data
+
+        List<String[]> list = logisticRegressionTraining.readCsvFile(CSV_PATH);
+        LogisticRegressionTraining.FraudData fraudData = logisticRegressionTraining.processTransactionData(list);
         MultiLayerNetwork network = new MultiLayerNetwork(conf);
+        network.init();
+        network.fit(dataSet);
+
+        Evaluation eval= new Evaluation(2);
+
+        INDArray iLabels = FeatureUtil.toOutcomeMatrix(fraudData.labels, 2);
+
+
+        INDArray output = network.output(dataSet.getFeatures());
+        eval.eval(iLabels, output);
+        System.out.println(eval.stats());
     }
 
 
