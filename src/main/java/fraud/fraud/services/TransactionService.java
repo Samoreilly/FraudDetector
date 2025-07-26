@@ -3,6 +3,7 @@ package fraud.fraud.services;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.opencsv.CSVWriter;
 import fraud.fraud.AI.AnomalyTraining;
+import fraud.fraud.AI.HandleNeuralTransaction;
 import fraud.fraud.AI.LogisticRegressionTraining;
 import fraud.fraud.DTO.TransactionRequest;
 import fraud.fraud.Notifications.NotificationService;
@@ -37,9 +38,10 @@ public class TransactionService implements TransactionHandler {
     private final NotificationService notificationService;
     private final TransactionPipeline pipeline;
     private final AnomalyTraining anomalyTraining;
+    private final HandleNeuralTransaction  handleNeuralTransaction;
     LogisticRegressionTraining service = new LogisticRegressionTraining();
 
-    public TransactionService(RedisTemplate<String, Object> redisTemplate, LogisticRegressionTraining logisticRegressionTraining, ObjectMapper objectMapper, SetupSse setupSse, KafkaTemplate<String, TransactionRequest>  kafkaTemplate, TransactionSecurityCheck transactionSecurityCheck, ValidateTransactions validateTransactions, NotificationService  notificationService, TransactionPipeline pipeline, AnomalyTraining anomalyTraining) {
+    public TransactionService(RedisTemplate<String, Object> redisTemplate, LogisticRegressionTraining logisticRegressionTraining, ObjectMapper objectMapper, SetupSse setupSse, KafkaTemplate<String, TransactionRequest>  kafkaTemplate, TransactionSecurityCheck transactionSecurityCheck, ValidateTransactions validateTransactions, NotificationService  notificationService, TransactionPipeline pipeline, AnomalyTraining anomalyTraining,  HandleNeuralTransaction handleNeuralTransaction) {
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
         this.setupSse = setupSse;
@@ -50,6 +52,7 @@ public class TransactionService implements TransactionHandler {
         this.notificationService = notificationService;
         this.pipeline = pipeline;
         this.anomalyTraining = anomalyTraining;
+        this.handleNeuralTransaction = handleNeuralTransaction;
     }
 
 
@@ -85,6 +88,9 @@ public class TransactionService implements TransactionHandler {
 
     @KafkaListener(topics = "transactions", groupId = "in-transactions", containerFactory = "factory")
     public void transactionPipeline(@Payload TransactionRequest userData) throws Exception {
+
+        handleNeuralTransaction.handleTransaction(userData);
+
 
         anomalyTraining.anomalyPipeline(userData);
 
