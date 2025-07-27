@@ -70,7 +70,7 @@ public class LogisticRegressionTraining {
                 double latitude = Double.parseDouble(row[3].trim());
                 double longitude = Double.parseDouble(row[4].trim());
                 int label = Integer.parseInt(row[5].trim());
-
+                System.out.println("check-logrt"+ amount + " " + time + " " + latitude + " " + longitude);
                 validFeatures.add(new double[]{amount, time, latitude, longitude});
                 validLabels.add(label);
 
