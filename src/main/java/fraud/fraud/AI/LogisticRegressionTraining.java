@@ -65,12 +65,12 @@ public class LogisticRegressionTraining {
                 }
 
                 double amount = Double.parseDouble(row[1].trim());
-                System.out.println("yanana"+ amount);
+//                System.out.println("yanana"+ amount);
                 double time = Double.parseDouble(row[2].trim());
                 double latitude = Double.parseDouble(row[3].trim());
                 double longitude = Double.parseDouble(row[4].trim());
                 int label = Integer.parseInt(row[5].trim());
-                System.out.println("check-logrt"+ amount + " " + time + " " + latitude + " " + longitude);
+//                System.out.println("check-logrt"+ amount + " " + time + " " + latitude + " " + longitude);
                 validFeatures.add(new double[]{amount, time, latitude, longitude});
                 validLabels.add(label);
 

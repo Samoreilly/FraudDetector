@@ -89,9 +89,9 @@ public class NeuralNetworkManager {
 
     public DataSet createDataset() throws Exception {
         List<String[]> list = logisticRegressionTraining.readCsvFile(CSV_PATH);
-        for(int i = 0; i < list.size(); i++) {
-            System.out.println("STR" + Arrays.toString(list.get(i)));//READING CSV FILE IS GOOD
-        }
+//        for(int i = 0; i < list.size(); i++) {
+//            System.out.println("STR" + Arrays.toString(list.get(i)));//READING CSV FILE IS GOOD
+//        }
         LogisticRegressionTraining.FraudData fraudData = filterTransactions.filterData(list);//new method to extract features and labels
 
         double[][] rawFeatures = fraudData.features;
@@ -100,7 +100,7 @@ public class NeuralNetworkManager {
         List<Integer> balancedLabels = new ArrayList<>();
 
         for (int i = 0; i < rawFeatures.length; i++) {
-            System.out.println("RAW" + rawFeatures[i][0]);
+//            System.out.println("RAW" + rawFeatures[i][0]);
             double latitude = rawFeatures[i][2];
             double longitude = rawFeatures[i][3];
 
@@ -162,6 +162,7 @@ public class NeuralNetworkManager {
         for (int i = 0; i < numEpochs; i++) {
             network.fit(trainTest.getTrain());
             INDArray testOutput = network.output(trainTest.getTest().getFeatures());
+
             eval.eval(trainTest.getTest().getLabels(), testOutput);
             System.out.println("Epoch " + i + ": Fraud Precision=" + eval.precision(1) +
                     ", Fraud Recall=" + eval.recall(1));

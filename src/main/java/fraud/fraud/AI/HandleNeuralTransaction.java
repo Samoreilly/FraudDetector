@@ -68,7 +68,7 @@ public class HandleNeuralTransaction {
 
         INDArray output = network.output(input, false);
         double fraudProb = output.getDouble(1);
-        double threshold = 0.7;
+        double threshold = 0.65;
         int predict = (fraudProb > threshold) ? 1 : 0;
 
         System.out.println("Raw input: " + Arrays.toString(data));
