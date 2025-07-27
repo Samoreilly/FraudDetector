@@ -1,5 +1,6 @@
 package fraud.fraud.AI;
 
+import fraud.fraud.AI.randomaimethodologiesandotherstufflol.FilterTransactions;
 import fraud.fraud.services.TransactionService;
 import fraud.fraud.services.ValidateTransactions;
 import jakarta.annotation.PostConstruct;
@@ -36,12 +37,15 @@ public class NeuralNetworkManager {
     private static final String CSV_PATH = "/home/sam-o-reilly/IdeaProjects/FraudDetector/csv/trans.csv";
     private final LogisticRegressionTraining logisticRegressionTraining;
     private final ValidateTransactions validateTransactions;
+    private final FilterTransactions filterTransactions;
 
     DataNormalization normalizer = new NormalizerStandardize();//normalise data to get rid of extremely high high's and low low's
 
-    public NeuralNetworkManager(LogisticRegressionTraining logisticRegressionTraining, ValidateTransactions validateTransactions) {
+    public NeuralNetworkManager(LogisticRegressionTraining logisticRegressionTraining, ValidateTransactions validateTransactions, FilterTransactions filterTransactions) {
         this.logisticRegressionTraining = logisticRegressionTraining;
         this.validateTransactions = validateTransactions;
+        this.filterTransactions = filterTransactions;
+
     }
 
     public MultiLayerNetwork getNetwork() {
@@ -85,18 +89,25 @@ public class NeuralNetworkManager {
 
     public DataSet createDataset() throws Exception {
         List<String[]> list = logisticRegressionTraining.readCsvFile(CSV_PATH);
-        LogisticRegressionTraining.FraudData fraudData = logisticRegressionTraining.processTransactionData(list);
+        for(int i = 0; i < list.size(); i++) {
+            System.out.println("STR" + Arrays.toString(list.get(i)));//READING CSV FILE IS GOOD
+        }
+        LogisticRegressionTraining.FraudData fraudData = filterTransactions.filterData(list);//new method to extract features and labels
+
         double[][] rawFeatures = fraudData.features;
         int[] labels = fraudData.labels;
         List<double[]> balancedFeatures = new ArrayList<>();
         List<Integer> balancedLabels = new ArrayList<>();
 
         for (int i = 0; i < rawFeatures.length; i++) {
-
+            System.out.println("RAW" + rawFeatures[i][0]);
             double latitude = rawFeatures[i][2];
             double longitude = rawFeatures[i][3];
 
             double amount = Math.min(rawFeatures[i][0], 1000000.0);
+
+
+            if(amount < 0) System.out.println("amount is negativeamount is negativeamount is negativeamount is negativeamount is negativeamount is negativeamount is negativeamount is negativeamount is negativeamount is negativeamount is negativeamount is negativeamount is negativeamount is negative");
 
             long epochSeconds = (long) rawFeatures[i][1];
 
