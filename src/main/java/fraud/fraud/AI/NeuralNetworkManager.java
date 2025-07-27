@@ -43,6 +43,7 @@ public class NeuralNetworkManager {
         this.logisticRegressionTraining = logisticRegressionTraining;
         this.validateTransactions = validateTransactions;
     }
+
     public MultiLayerNetwork getNetwork() {
         return network;
     }
@@ -85,7 +86,6 @@ public class NeuralNetworkManager {
     public DataSet createDataset() throws Exception {
         List<String[]> list = logisticRegressionTraining.readCsvFile(CSV_PATH);
         LogisticRegressionTraining.FraudData fraudData = logisticRegressionTraining.processTransactionData(list);
-
         double[][] rawFeatures = fraudData.features;
         int[] labels = fraudData.labels;
         List<double[]> balancedFeatures = new ArrayList<>();
@@ -97,6 +97,7 @@ public class NeuralNetworkManager {
             double longitude = rawFeatures[i][3];
 
             double amount = Math.min(rawFeatures[i][0], 1000000.0);
+
             long epochSeconds = (long) rawFeatures[i][1];
 
             Instant instant = Instant.ofEpochSecond(epochSeconds);

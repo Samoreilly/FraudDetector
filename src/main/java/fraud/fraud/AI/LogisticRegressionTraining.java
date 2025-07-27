@@ -65,6 +65,7 @@ public class LogisticRegressionTraining {
                 }
 
                 double amount = Double.parseDouble(row[1].trim());
+                System.out.println("yanana"+ amount);
                 double time = Double.parseDouble(row[2].trim());
                 double latitude = Double.parseDouble(row[3].trim());
                 double longitude = Double.parseDouble(row[4].trim());
