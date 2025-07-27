@@ -14,7 +14,7 @@ public class HandleNeuralTransaction {
 
     private final NeuralNetworkManager neuralNetworkManager;
     private final MultiLayerNetwork network;
-    private DataNormalization normalizer;
+    private final DataNormalization normalizer;
 
     public HandleNeuralTransaction(NeuralNetworkManager neuralNetworkManager) {
         this.neuralNetworkManager = neuralNetworkManager;
@@ -25,6 +25,7 @@ public class HandleNeuralTransaction {
     public void handleTransaction(TransactionRequest userData) throws Exception {
 
         if(userData == null)return;
+
 
         long currentEpoch = userData.getTime().toEpochSecond(ZoneOffset.UTC);
         long epochSeconds = 1719650000 + (currentEpoch % 60000);
@@ -39,6 +40,7 @@ public class HandleNeuralTransaction {
         normalizer.transform(input);
 
         INDArray output = network.output(input);
+        System.out.println(output);
 
         int predict = Nd4j.argMax(output, 1).getInt(0);
         System.out.println("predict = " + predict);

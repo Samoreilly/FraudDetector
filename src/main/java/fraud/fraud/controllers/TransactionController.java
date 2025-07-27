@@ -55,10 +55,11 @@ public class TransactionController {
             return ResponseEntity.status(401).body("Unauthorized");
         }
 
-        neuralNetworkManager.initModel();// for testing
+//        neuralNetworkManager.initModel();// for testing
 
 
         customMetricsService.incrementTotalApiRequests();
+
         String ip = getClientIp(request);
         String key = "rate_limit:ip" + ip;
         String sessionId = principal.getAttribute("sub");
