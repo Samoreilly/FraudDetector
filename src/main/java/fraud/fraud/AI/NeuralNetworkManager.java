@@ -1,6 +1,7 @@
 package fraud.fraud.AI;
 
 import fraud.fraud.services.TransactionService;
+import fraud.fraud.services.ValidateTransactions;
 import jakarta.annotation.PostConstruct;
 import org.deeplearning4j.nn.conf.MultiLayerConfiguration;
 import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
@@ -23,6 +24,8 @@ import org.nd4j.linalg.dataset.DataSet;
 import org.springframework.stereotype.Service;
 import smile.data.Dataset;
 
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -32,9 +35,13 @@ public class NeuralNetworkManager {
 
     private static final String CSV_PATH = "/home/sam-o-reilly/IdeaProjects/FraudDetector/csv/trans.csv";
     private final LogisticRegressionTraining logisticRegressionTraining;
+    private final ValidateTransactions validateTransactions;
+
     DataNormalization normalizer = new NormalizerStandardize();//normalise data to get rid of extremely high high's and low low's
-    public NeuralNetworkManager(LogisticRegressionTraining logisticRegressionTraining) {
+
+    public NeuralNetworkManager(LogisticRegressionTraining logisticRegressionTraining, ValidateTransactions validateTransactions) {
         this.logisticRegressionTraining = logisticRegressionTraining;
+        this.validateTransactions = validateTransactions;
     }
     public MultiLayerNetwork getNetwork() {
         return network;
@@ -49,74 +56,110 @@ public class NeuralNetworkManager {
     }
 
     MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
-            .seed(123)  // for reproducibility
-            .updater(new Adam(0.001))  // optimizer and learning rate
+            .seed(123)
+            .updater(new Adam(0.001))
+            .l2(0.001)
             .list()
             .layer(new DenseLayer.Builder()
-                    .nIn(4)//features
-                    .nOut(50)//neurons
+                    .nIn(6)
+                    .nOut(50)
                     .activation(Activation.RELU)
+                    .dropOut(0.4)
                     .build())
             .layer(new DenseLayer.Builder()
-                    .nIn(50)//features
-                    .nOut(50)//neurons
+                    .nIn(50)
+                    .nOut(50)
                     .activation(Activation.RELU)
+                    .dropOut(0.4)
                     .build())
             .layer(new OutputLayer.Builder(LossFunctions.LossFunction.NEGATIVELOGLIKELIHOOD)
                     .nIn(50)
-                    .nOut(2)//classes - fraud or no fraud
+                    .nOut(2)
                     .activation(Activation.SOFTMAX)
+                    .weightInit(WeightInit.XAVIER)
                     .build())
-
             .build();
 
     MultiLayerNetwork network = new MultiLayerNetwork(conf);
 
     public DataSet createDataset() throws Exception {
-
-        List<String[]> list = logisticRegressionTraining.readCsvFile(CSV_PATH);//get data
-
-        LogisticRegressionTraining.FraudData fraudData = logisticRegressionTraining.processTransactionData(list);//extract features and labels
-        INDArray arr = Nd4j.create(fraudData.features);
-
-        int[] label = fraudData.labels;
-        long frauds = Arrays.stream(label).filter(i -> i == 1).count();
-        long legit = Arrays.stream(label).filter(i -> i == 0).count();
-        System.out.printf("Label counts → Legit: %d, Fraud: %d%n", legit, frauds);
-
-        INDArray labels = FeatureUtil.toOutcomeMatrix(label, 2);
-
-        DataSet dataset = new DataSet(arr, labels);//create dataset
-        normalizer.fit(dataset);
-        normalizer.transform(dataset);
-        return dataset;
-
-    }
-    public void initModel() throws Exception {
-        DataSet dataSet = createDataset();//initilize and normalise data
-        Evaluation eval= new Evaluation(2);
-
         List<String[]> list = logisticRegressionTraining.readCsvFile(CSV_PATH);
         LogisticRegressionTraining.FraudData fraudData = logisticRegressionTraining.processTransactionData(list);
 
+        double[][] rawFeatures = fraudData.features;
+        int[] labels = fraudData.labels;
+        List<double[]> balancedFeatures = new ArrayList<>();
+        List<Integer> balancedLabels = new ArrayList<>();
+
+        for (int i = 0; i < rawFeatures.length; i++) {
+
+            double latitude = rawFeatures[i][2];
+            double longitude = rawFeatures[i][3];
+
+            double amount = Math.min(rawFeatures[i][0], 1000000.0);
+            long epochSeconds = (long) rawFeatures[i][1];
+
+            Instant instant = Instant.ofEpochSecond(epochSeconds);
+            int hourOfDay = instant.atZone(ZoneOffset.UTC).getHour();
+            int dayOfWeek = instant.atZone(ZoneOffset.UTC).getDayOfWeek().getValue();
+
+            double distance = validateTransactions.calculateDistance(latitude, longitude, 26.7447058687939, 14.835507388130088);
+
+            double[] transformed = new double[] {
+                    Math.log1p(amount),
+                    hourOfDay,
+                    dayOfWeek,
+                    latitude,
+                    longitude,
+                    distance
+            };
+
+            balancedFeatures.add(transformed);
+            balancedLabels.add(labels[i]);
+
+            if (labels[i] == 1) {
+                for (int j = 0; j < (int) Math.round(1.83 - 1); j++) {
+                    balancedFeatures.add(transformed);
+                    balancedLabels.add(labels[i]);
+                }
+            }
+        }
+
+        double[][] transformedFeatures = balancedFeatures.toArray(new double[0][]);
+        int[] balancedLabelArray = balancedLabels.stream().mapToInt(i -> i).toArray();
+        INDArray features = Nd4j.create(transformedFeatures);
+        INDArray labelArray = FeatureUtil.toOutcomeMatrix(balancedLabelArray, 2);
+
+        System.out.printf("Balanced counts → Legit: %d, Fraud: %d%n",
+                Arrays.stream(balancedLabelArray).filter(i -> i == 0).count(),
+                Arrays.stream(balancedLabelArray).filter(i -> i == 1).count());
+
+        DataSet dataset = new DataSet(features, labelArray);
+        normalizer.fit(dataset);
+        normalizer.transform(dataset);
+        return dataset;
+    }
+
+    public void initModel() throws Exception {
+        DataSet dataSet = createDataset();
         network.init();
+        SplitTestAndTrain trainTest = dataSet.splitTestAndTrain(0.8);
 
-        SplitTestAndTrain trainTest = dataSet.splitTestAndTrain(0.8); // 80/20 split
+        int numEpochs = 100;
+        Evaluation eval = new Evaluation(2);
+        for (int i = 0; i < numEpochs; i++) {
+            network.fit(trainTest.getTrain());
+            INDArray testOutput = network.output(trainTest.getTest().getFeatures());
+            eval.eval(trainTest.getTest().getLabels(), testOutput);
+            System.out.println("Epoch " + i + ": Fraud Precision=" + eval.precision(1) +
+                    ", Fraud Recall=" + eval.recall(1));
+            if (eval.precision(1) > 0.85) break;
+        }
 
-        network.fit(trainTest.getTrain());
-        eval.eval(trainTest.getTest().getLabels(), network.output(trainTest.getTest().getFeatures()));
-
-        System.out.println("Confusion Matrix:");
-        System.out.println(eval.getConfusionMatrix().toString());
-        System.out.println(eval.stats());
-
-
-        INDArray iLabels = FeatureUtil.toOutcomeMatrix(fraudData.labels, 2);
-
-
-        INDArray output = network.output(dataSet.getFeatures());
-
-        System.out.println(eval.stats());
+        System.out.println("Confusion Matrix:\n" + eval.confusionToString());
+        System.out.println("Fraud Precision: " + eval.precision(1));
+        System.out.println("Fraud Recall: " + eval.recall(1));
+        System.out.println("Fraud F1-Score: " + eval.f1(1));
     }
 
 
