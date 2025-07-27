@@ -1,6 +1,7 @@
 package fraud.fraud.AI;
 
 import fraud.fraud.services.TransactionService;
+import jakarta.annotation.PostConstruct;
 import org.deeplearning4j.nn.conf.MultiLayerConfiguration;
 import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
 import org.deeplearning4j.nn.conf.layers.DenseLayer;
@@ -10,6 +11,7 @@ import org.deeplearning4j.nn.weights.WeightInit;
 import org.nd4j.evaluation.classification.Evaluation;
 import org.nd4j.linalg.activations.Activation;
 import org.nd4j.linalg.api.ndarray.INDArray;
+import org.nd4j.linalg.dataset.SplitTestAndTrain;
 import org.nd4j.linalg.dataset.api.preprocessor.DataNormalization;
 import org.nd4j.linalg.dataset.api.preprocessor.NormalizerStandardize;
 import org.nd4j.linalg.factory.Nd4j;
@@ -41,6 +43,10 @@ public class NeuralNetworkManager {
     public DataNormalization getNormalizer() {
         return normalizer;
     }
+    @PostConstruct
+    public void init() throws Exception {
+        initModel();
+    }
 
     MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
             .seed(123)  // for reproducibility
@@ -51,11 +57,17 @@ public class NeuralNetworkManager {
                     .nOut(50)//neurons
                     .activation(Activation.RELU)
                     .build())
+            .layer(new DenseLayer.Builder()
+                    .nIn(50)//features
+                    .nOut(50)//neurons
+                    .activation(Activation.RELU)
+                    .build())
             .layer(new OutputLayer.Builder(LossFunctions.LossFunction.NEGATIVELOGLIKELIHOOD)
                     .nIn(50)
                     .nOut(2)//classes - fraud or no fraud
                     .activation(Activation.SOFTMAX)
                     .build())
+
             .build();
 
     MultiLayerNetwork network = new MultiLayerNetwork(conf);
@@ -68,7 +80,9 @@ public class NeuralNetworkManager {
         INDArray arr = Nd4j.create(fraudData.features);
 
         int[] label = fraudData.labels;
-
+        long frauds = Arrays.stream(label).filter(i -> i == 1).count();
+        long legit = Arrays.stream(label).filter(i -> i == 0).count();
+        System.out.printf("Label counts → Legit: %d, Fraud: %d%n", legit, frauds);
 
         INDArray labels = FeatureUtil.toOutcomeMatrix(label, 2);
 
@@ -80,19 +94,28 @@ public class NeuralNetworkManager {
     }
     public void initModel() throws Exception {
         DataSet dataSet = createDataset();//initilize and normalise data
+        Evaluation eval= new Evaluation(2);
 
         List<String[]> list = logisticRegressionTraining.readCsvFile(CSV_PATH);
         LogisticRegressionTraining.FraudData fraudData = logisticRegressionTraining.processTransactionData(list);
-        network.init();
-        network.fit(dataSet);
 
-        Evaluation eval= new Evaluation(2);
+        network.init();
+
+        SplitTestAndTrain trainTest = dataSet.splitTestAndTrain(0.8); // 80/20 split
+
+        network.fit(trainTest.getTrain());
+        eval.eval(trainTest.getTest().getLabels(), network.output(trainTest.getTest().getFeatures()));
+
+        System.out.println("Confusion Matrix:");
+        System.out.println(eval.getConfusionMatrix().toString());
+        System.out.println(eval.stats());
+
 
         INDArray iLabels = FeatureUtil.toOutcomeMatrix(fraudData.labels, 2);
 
 
         INDArray output = network.output(dataSet.getFeatures());
-        eval.eval(iLabels, output);
+
         System.out.println(eval.stats());
     }
 

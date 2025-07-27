@@ -135,7 +135,6 @@
 			<groupId>org.bytedeco</groupId>
 			<artifactId>openblas-platform</artifactId>
 		</dependency>
-
 		<dependency>
 			<groupId>org.nd4j</groupId>
 			<artifactId>nd4j-native-platform</artifactId>
@@ -146,6 +145,10 @@
 			<artifactId>datavec-api</artifactId>
 			<version>1.0.0-M2.1</version>
 		</dependency>
+			<dependency>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-devtools</artifactId>
+			</dependency>
 
 	</dependencies>
 
