@@ -55,7 +55,7 @@ public class NeuralNetworkManager {
     public DataNormalization getNormalizer() {
         return normalizer;
     }
-    @PostConstruct
+    @PostConstruct // train and run model on startup
     public void init() throws Exception {
         initModel();
     }

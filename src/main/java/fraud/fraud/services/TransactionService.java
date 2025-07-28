@@ -131,6 +131,7 @@ public class TransactionService implements TransactionHandler {
         System.out.println("Cached");
 
     }
+
     public void saveTransaction(TransactionRequest userData, boolean isFraud){
         redisTemplate.opsForList().leftPush(userData.getId(), userData);
         notificationService.sendNotification(userData, "Caching your transaction");
@@ -144,6 +145,7 @@ public class TransactionService implements TransactionHandler {
             notificationService.sendNotification(userData, "Error processing transaction");
         }
     }
+
     public void addModel(TransactionRequest userData, boolean isFraud) throws IOException {
         String CSV_PATH = "/home/sam-o-reilly/IdeaProjects/FraudDetector/csv/trans.csv";
 
