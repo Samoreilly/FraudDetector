@@ -2,6 +2,7 @@ package fraud.fraud.AI;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import fraud.fraud.DTO.TransactionRequest;
+import fraud.fraud.Notifications.NotificationService;
 import fraud.fraud.services.ValidateTransactions;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.nd4j.linalg.api.ndarray.INDArray;
@@ -22,18 +23,23 @@ public class HandleNeuralTransaction {
     private final ValidateTransactions validateTransactions;
     private final RedisTemplate<String, Object> redisTemplate;
     private final ObjectMapper objectMapper;
+    private final NotificationService  notificationService;
 
-    public HandleNeuralTransaction(NeuralNetworkManager neuralNetworkManager, ValidateTransactions  validateTransactions, RedisTemplate<String, Object> redisTemplate, ObjectMapper objectMapper, ObjectMapper objectMapper1) {
+    public HandleNeuralTransaction(NeuralNetworkManager neuralNetworkManager, ValidateTransactions  validateTransactions, RedisTemplate<String, Object> redisTemplate, ObjectMapper objectMapper,  NotificationService notificationService) {
         this.neuralNetworkManager = neuralNetworkManager;
         this.network = neuralNetworkManager.getNetwork();
         this.normalizer = neuralNetworkManager.getNormalizer();
         this.validateTransactions = validateTransactions;
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
+        this.notificationService = notificationService;
     }
 
     public void handleTransaction(TransactionRequest userData) throws Exception {
         if (userData == null) return;
+
+        notificationService.sendNotification(userData, "Your transaction is being analysed by our Multi Layer Network");
+
         if (Double.parseDouble(userData.getData()) < 0) {
             throw new IllegalArgumentException("Amount cannot be negative.");
         }
@@ -43,11 +49,11 @@ public class HandleNeuralTransaction {
         }
         TransactionRequest trans = objectMapper.convertValue(transaction, TransactionRequest.class);
 
-        Double prevLatitude = trans.getLatitude();
+        Double prevLatitude = trans.getLatitude();// get users previous transaction latitude and longitude
         Double prevLongitude = trans.getLongitude();
         Double latitude = userData.getLatitude();
         Double longitude = userData.getLongitude();
-        double logAmount = Math.log1p(Double.parseDouble(userData.getData()));
+        double logAmount = Math.log1p(Double.parseDouble(userData.getData()));// log to normalize values
         int hourOfDay = userData.getTime().getHour();
 
 
@@ -71,10 +77,16 @@ public class HandleNeuralTransaction {
         double threshold = 0.65;
         int predict = (fraudProb > threshold) ? 1 : 0;
 
+        if(predict == 1){
+            notificationService.sendNotification(userData, "Your transaction was predicted as fraud by our Multi Layer Network. It will be reviewed");
+            return;
+        }
+
         System.out.println("Raw input: " + Arrays.toString(data));
         System.out.println("Normalized input: " + input);
         System.out.println("Output: [Legitimate=" + output.getDouble(0) + ", Fraud=" + output.getDouble(1) + "]");
         System.out.println("Prediction: " + predict);
+        notificationService.sendNotification(userData, "MLN Prediction: " + predict);
     }
 
 }
