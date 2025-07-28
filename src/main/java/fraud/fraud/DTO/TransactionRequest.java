@@ -3,7 +3,6 @@ package fraud.fraud.DTO;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import fraud.fraud.entitys.Threat;
-
 import java.io.Serializable;
 import java.time.LocalDateTime;
 

@@ -5,7 +5,6 @@ import fraud.fraud.ErrorMessages;
 import fraud.fraud.Notifications.NotificationService;
 import fraud.fraud.entitys.Threat;
 import fraud.fraud.interfaces.Handler;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.List;

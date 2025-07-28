@@ -2,7 +2,6 @@ package fraud.fraud.services;
 
 import net.vpnblocker.api.VPNDetection;
 import org.springframework.stereotype.Service;
-
 import java.io.IOException;
 
 @Service

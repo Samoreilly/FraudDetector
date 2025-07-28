@@ -3,7 +3,6 @@ package fraud.fraud.services;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import fraud.fraud.DTO.TransactionRequest;
 import fraud.fraud.Notifications.NotificationService;
-import fraud.fraud.interfaces.Handler;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
