@@ -5,8 +5,6 @@ import fraud.fraud.DTO.TransactionRequest;
 import fraud.fraud.Notifications.NotificationService;
 import org.springframework.stereotype.Service;
 import smile.anomaly.IsolationForest;
-
-import java.io.FileReader;
 import java.io.Reader;
 import java.io.Serializable;
 import java.nio.file.Files;

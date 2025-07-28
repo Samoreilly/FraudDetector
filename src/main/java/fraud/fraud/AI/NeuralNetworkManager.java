@@ -1,7 +1,6 @@
 package fraud.fraud.AI;
 
 import fraud.fraud.AI.randomaimethodologiesandotherstufflol.FilterTransactions;
-import fraud.fraud.services.TransactionService;
 import fraud.fraud.services.ValidateTransactions;
 import jakarta.annotation.PostConstruct;
 import org.deeplearning4j.nn.conf.MultiLayerConfiguration;
@@ -20,11 +19,8 @@ import org.nd4j.linalg.factory.Nd4j;
 import org.nd4j.linalg.learning.config.Adam;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
 import org.nd4j.linalg.util.FeatureUtil;
-import org.nd4j.shade.guava.primitives.Ints;
 import org.nd4j.linalg.dataset.DataSet;
 import org.springframework.stereotype.Service;
-import smile.data.Dataset;
-
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;

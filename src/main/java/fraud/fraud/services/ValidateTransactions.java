@@ -6,8 +6,6 @@ import fraud.fraud.Notifications.NotificationService;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
-
-import java.time.Duration;
 import java.util.List;
 
 @Service

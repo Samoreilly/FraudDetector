@@ -3,7 +3,6 @@ package fraud.fraud.redisconfig;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import fraud.fraud.DTO.TransactionRequest;
 import org.springframework.boot.autoconfigure.cache.RedisCacheManagerBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

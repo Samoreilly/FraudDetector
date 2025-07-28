@@ -8,23 +8,18 @@ import fraud.fraud.AI.LogisticRegressionTraining;
 import fraud.fraud.AI.NeuralNetworkManager;
 import fraud.fraud.DTO.TransactionRequest;
 import fraud.fraud.Notifications.NotificationService;
-import fraud.fraud.entitys.Threat;
 import fraud.fraud.interfaces.TransactionHandler;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.kafka.support.SendResult;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Service;
-import smile.io.CSV;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.time.Duration;
-import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 @Service
 public class TransactionService implements TransactionHandler {

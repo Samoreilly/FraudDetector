@@ -1,7 +1,6 @@
 package fraud.fraud.services;
 
 import fraud.fraud.DTO.TransactionRequest;
-import jakarta.servlet.http.HttpSession;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
