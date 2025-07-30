@@ -89,7 +89,7 @@ public class TransactionService implements TransactionHandler {
     public void transactionPipeline(@Payload TransactionRequest userData) throws Exception {
 
 
-        handleNeuralTransaction.handleTransaction(userData);
+//        handleNeuralTransaction.handleTransaction(userData);
 
 
         anomalyTraining.anomalyPipeline(userData);
