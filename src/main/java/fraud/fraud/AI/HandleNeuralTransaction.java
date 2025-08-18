@@ -35,7 +35,7 @@ public class HandleNeuralTransaction implements Handler {
         this.objectMapper = objectMapper;
         this.notificationService = notificationService;
     }
-    @Override
+    @Override //ignore validateTimes as it a necessary paramater in the chain of responsibility design pattern
     public boolean handle(TransactionRequest userData, List<TransactionRequest> validateTimes) throws Exception {
         if (userData == null) return false;
 
@@ -57,8 +57,7 @@ public class HandleNeuralTransaction implements Handler {
         Double longitude = userData.getLongitude();
         double logAmount = Math.log1p(Double.parseDouble(userData.getData()));// log to normalize values
         int hourOfDay = userData.getTime().getHour();
-
-
+        
         double distance = validateTransactions.calculateDistance(latitude, longitude, prevLatitude, prevLongitude);
         int dayOfWeek = userData.getTime().getDayOfWeek().getValue();
         double[] data = new double[] {

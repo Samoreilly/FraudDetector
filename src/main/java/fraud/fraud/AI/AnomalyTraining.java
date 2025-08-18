@@ -24,7 +24,6 @@ public class AnomalyTraining implements Serializable {
         this.notificationService = notificationService;
     }
 
-
     public List<double[]> readCsvFile(String filePath) throws Exception {
         Path path = Paths.get(filePath);
 
