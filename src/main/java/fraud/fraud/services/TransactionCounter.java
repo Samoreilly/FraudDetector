@@ -22,17 +22,15 @@ public class TransactionCounter {
     public boolean counter(TransactionRequest transactionRequest) {
         String userId = transactionRequest.getId();
 
-        Integer count = counter.get(userId);//get users count
-
-        if (count == null) {
-            counter.set(userId, 1, WINDOW);
-            return true;
-        }else if(count >= 50){
-            notificationService.sendNotification(transactionRequest, "Too much transactions made in the last hour");
-            return false;
-        }else{
-            counter.increment(userId);
-            return true;
+        Long count = counter.increment(userId);
+        if (count == 1) {
+            counter.getOperations().expire(userId,  WINDOW);
         }
+        if(count >= 50){
+            notificationService.sendNotification(transactionRequest,"Too many transactions in the last hour");
+            return false;
+        }
+        return true;
+
     }
 }
