@@ -14,7 +14,7 @@ public class RateLimiting {
     public static final int MAX_REQUESTS = 10;
     private final Duration WINDOW = Duration.ofMinutes(1);
 
-    public RateLimiting(@Qualifier("integerRedisTemplate") RedisTemplate<String, Integer> redisTemplate) {
+    public RateLimiting(@Qualifier("integerRedisTemplate") RedisTemplate<String, Integer> redisTemplate){
         this.val = redisTemplate.opsForValue();
     }
 

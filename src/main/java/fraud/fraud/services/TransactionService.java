@@ -36,10 +36,11 @@ public class TransactionService implements TransactionHandler {
     private final AnomalyTraining anomalyTraining;
     private final HandleNeuralTransaction  handleNeuralTransaction;
     private final NeuralNetworkManager neuralNetworkManager;
+    private final TransactionCounter transactionCounter;
 
     LogisticRegressionTraining service = new LogisticRegressionTraining();
 
-    public TransactionService(RedisTemplate<String, Object> redisTemplate, LogisticRegressionTraining logisticRegressionTraining, ObjectMapper objectMapper, SetupSse setupSse, KafkaTemplate<String, TransactionRequest>  kafkaTemplate, TransactionSecurityCheck transactionSecurityCheck, ValidateTransactions validateTransactions, NotificationService  notificationService, TransactionPipeline pipeline, AnomalyTraining anomalyTraining,  HandleNeuralTransaction handleNeuralTransaction, NeuralNetworkManager neuralNetworkManager) {
+    public TransactionService(RedisTemplate<String, Object> redisTemplate, LogisticRegressionTraining logisticRegressionTraining, ObjectMapper objectMapper, SetupSse setupSse, KafkaTemplate<String, TransactionRequest>  kafkaTemplate, TransactionSecurityCheck transactionSecurityCheck, ValidateTransactions validateTransactions, NotificationService  notificationService, TransactionPipeline pipeline, AnomalyTraining anomalyTraining,  HandleNeuralTransaction handleNeuralTransaction, NeuralNetworkManager neuralNetworkManager, TransactionCounter transactionCounter) {
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
         this.setupSse = setupSse;
@@ -52,6 +53,7 @@ public class TransactionService implements TransactionHandler {
         this.anomalyTraining = anomalyTraining;
         this.handleNeuralTransaction = handleNeuralTransaction;
         this.neuralNetworkManager = neuralNetworkManager;
+        this.transactionCounter = transactionCounter;
     }
 
 
@@ -132,9 +134,14 @@ public class TransactionService implements TransactionHandler {
         notificationService.sendNotification(userData, "Caching your transaction");
 
         try {
+            boolean res = transactionCounter.counter(userData);
+            if(res)return;// checks how much transactions are made per user in the last hour
+
             notificationService.sendNotification(userData, "Successful transaction");
             addModel(userData, isFraud);// add data to csv to build improve dataset
             System.out.println("Transaction sent successfully");
+            //redis counter logic goes ho
+
         } catch (Exception e) {
             System.err.println("Failed to send transaction: " + e.getMessage());
             notificationService.sendNotification(userData, "Error processing transaction");
