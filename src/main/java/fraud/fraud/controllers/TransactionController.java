@@ -18,10 +18,15 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @RestController
 @RequestMapping("/api")
 @CrossOrigin(origins = "http://localhost:5173", allowCredentials = "true")
 public class TransactionController {
+
+    private static final Logger logger = LoggerFactory.getLogger(TransactionController.class);
 
     //next up connect user to database, set session id from user id in database, pass to frontend and use in redis caching and kafka send()
     private final RateLimiting rateLimiting;
@@ -52,8 +57,7 @@ public class TransactionController {
             return ResponseEntity.status(401).body("Unauthorized");
         }
 
-//        neuralNetworkManager.initModel();// for testing
-
+        //neuralNetworkManager.initModel();// for testing
 
         customMetricsService.incrementTotalApiRequests();
 
@@ -63,6 +67,8 @@ public class TransactionController {
 
         System.out.println("LATITUDE"+transactionInfo.getLatitude());
         System.out.println("LONGITUDE"+transactionInfo.getLongitude());
+
+        logger.debug("Transaction endpoint - sessionId={}, lat={}, lon={}", sessionId, transactionInfo.getLatitude(), transactionInfo.getLongitude());
 
 
         System.out.println("Transaction endpoint - Session ID: " + sessionId);
@@ -125,9 +131,11 @@ public class TransactionController {
         String xfHeader = request.getHeader("x-forwarded-for");
         if (xfHeader != null && !xfHeader.isEmpty()) {
             System.out.println("X-Forwarded-For: " + xfHeader);
+            logger.debug("X-Forwarded-For resolved IP: {}",xfHeader.split(",")[0].trim());
             return xfHeader.split(",")[0].trim();
         }
         System.out.println("Remote Address: " + request.getRemoteAddr());
+        logger.debug("Remote Address: {}", request.getRemoteAddr());
         return request.getRemoteAddr();
     }
 }
