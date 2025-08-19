@@ -20,16 +20,17 @@ public class RateLimiting {
 
     public boolean isAllowed(String key){
         Integer currentCount = val.get(key);
+        boolean initialized = Boolean.TRUE.equals(val.setIfAbsent(key, 1,WINDOW));//if key not present, returns true
 
-        if(currentCount == null){
-            val.set(key, 1,WINDOW);
-            return true;
-        }else if(currentCount >= MAX_REQUESTS){
-            return false;
-        }else{
-            val.increment(key);
+        if(initialized){
             return true;
         }
+
+        Long count = val.increment(key);
+        if (count != null && count >= MAX_REQUESTS) {
+            return false;
+        }
+        return count < MAX_REQUESTS;
     }
 
 }
