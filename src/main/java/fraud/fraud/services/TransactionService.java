@@ -6,6 +6,9 @@ import fraud.fraud.AI.AnomalyTraining;
 import fraud.fraud.AI.HandleNeuralTransaction;
 import fraud.fraud.AI.LogisticRegressionTraining;
 import fraud.fraud.AI.NeuralNetworkManager;
+import fraud.fraud.DLQ.ViewDeadLetterQueue;
+import fraud.fraud.DTO.DatabaseDTO;
+import fraud.fraud.DTO.DatabaseRepo;
 import fraud.fraud.DTO.TransactionRequest;
 import fraud.fraud.Notifications.NotificationService;
 import fraud.fraud.interfaces.TransactionHandler;
@@ -14,6 +17,8 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Service;
+
+import javax.swing.text.View;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.time.Duration;
@@ -37,10 +42,12 @@ public class TransactionService implements TransactionHandler {
     private final HandleNeuralTransaction  handleNeuralTransaction;
     private final NeuralNetworkManager neuralNetworkManager;
     private final TransactionCounter transactionCounter;
+    private final ViewDeadLetterQueue  viewDeadLetterQueue;
+    private final DatabaseRepo databaseRepo;
 
     LogisticRegressionTraining service = new LogisticRegressionTraining();
 
-    public TransactionService(RedisTemplate<String, Object> redisTemplate, LogisticRegressionTraining logisticRegressionTraining, ObjectMapper objectMapper, SetupSse setupSse, KafkaTemplate<String, TransactionRequest>  kafkaTemplate, TransactionSecurityCheck transactionSecurityCheck, ValidateTransactions validateTransactions, NotificationService  notificationService, TransactionPipeline pipeline, AnomalyTraining anomalyTraining,  HandleNeuralTransaction handleNeuralTransaction, NeuralNetworkManager neuralNetworkManager, TransactionCounter transactionCounter) {
+    public TransactionService(RedisTemplate<String, Object> redisTemplate, LogisticRegressionTraining logisticRegressionTraining, ObjectMapper objectMapper, SetupSse setupSse, KafkaTemplate<String, TransactionRequest>  kafkaTemplate, TransactionSecurityCheck transactionSecurityCheck, ValidateTransactions validateTransactions, NotificationService  notificationService, TransactionPipeline pipeline, AnomalyTraining anomalyTraining,  HandleNeuralTransaction handleNeuralTransaction, NeuralNetworkManager neuralNetworkManager, TransactionCounter transactionCounter, ViewDeadLetterQueue viewDeadLetterQueue, DatabaseRepo databaseRepo) {
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
         this.setupSse = setupSse;
@@ -54,6 +61,8 @@ public class TransactionService implements TransactionHandler {
         this.handleNeuralTransaction = handleNeuralTransaction;
         this.neuralNetworkManager = neuralNetworkManager;
         this.transactionCounter = transactionCounter;
+        this.viewDeadLetterQueue = viewDeadLetterQueue;
+        this.databaseRepo = databaseRepo;
     }
 
 
@@ -91,41 +100,55 @@ public class TransactionService implements TransactionHandler {
     public void transactionPipeline(@Payload TransactionRequest userData) throws Exception {
 
 
+        DatabaseDTO deadLetterObject = new DatabaseDTO();
+        deadLetterObject.setId(userData.getId());
+        deadLetterObject.setData(userData.getData());
+        deadLetterObject.setTime(userData.getTime());
+        deadLetterObject.setClientIp(userData.getClientIp());
+        deadLetterObject.setResult(userData.getResult());
+        deadLetterObject.setLatitude(userData.getLatitude());
+        deadLetterObject.setLongitude(userData.getLongitude());
+        deadLetterObject.setIsFraud(userData.getIsFraud());
+
+        viewDeadLetterQueue.sendToQueue(deadLetterObject);
+
 //        handleNeuralTransaction.handleTransaction(userData);
+        try {
 
 
-        anomalyTraining.anomalyPipeline(userData);
+            anomalyTraining.anomalyPipeline(userData);
 
-        notificationService.sendNotification(userData, "Processing your transaction");
-        System.out.println(userData);
-
-
+            notificationService.sendNotification(userData, "Processing your transaction");
+            System.out.println(userData);
 
 
-        long currentEpoch = userData.getTime().toEpochSecond(ZoneOffset.UTC);
-        //normalize time to fit into the models time range. As the models time range is around 2024 and input data is in 2025
-        double epochSeconds = 1719650000 + (currentEpoch % 60000);
-        service.trainModel();
-        boolean isFraud = service.predictFraud(Double.parseDouble(userData.getData()),epochSeconds, userData.getLatitude(), userData.getLongitude()); // amount, lat, lng
-        double fraudProb = service.getFraudProbability(Double.parseDouble(userData.getData()), epochSeconds, userData.getLatitude(), userData.getLongitude());
+            long currentEpoch = userData.getTime().toEpochSecond(ZoneOffset.UTC);
+            //normalize time to fit into the models time range. As the models time range is around 2024 and input data is in 2025
+            double epochSeconds = 1719650000 + (currentEpoch % 60000);
+            service.trainModel();
+            boolean isFraud = service.predictFraud(Double.parseDouble(userData.getData()), epochSeconds, userData.getLatitude(), userData.getLongitude()); // amount, lat, lng
+            double fraudProb = service.getFraudProbability(Double.parseDouble(userData.getData()), epochSeconds, userData.getLatitude(), userData.getLongitude());
 
 
-        System.out.printf("Fraud Prediction: %s\n", isFraud ? "FRAUD" : "LEGITIMATE");
-        System.out.printf("Fraud Probability: %.2f%% (%.4f)\n", fraudProb * 100, fraudProb);
-        if(transactionSecurityCheck.checkFraud(fraudProb, isFraud, userData)) {
-            System.out.println("Fraud detected - exiting early from pipeline");
-            return;
+            System.out.printf("Fraud Prediction: %s\n", isFraud ? "FRAUD" : "LEGITIMATE");
+            System.out.printf("Fraud Probability: %.2f%% (%.4f)\n", fraudProb * 100, fraudProb);
+            if (transactionSecurityCheck.checkFraud(fraudProb, isFraud, userData)) {
+                System.out.println("Fraud detected - exiting early from pipeline");
+                return;
+            }
+            // retrieve users transactions as a list
+            List<TransactionRequest> transactions = getTransactions(userData);
+            boolean result = pipeline.process(userData, transactions);
+            System.out.println(result + "-----------------------HANDLER RESULT");
+            if (result) {
+                saveTransaction(userData, isFraud);//save transaction
+            } else {
+                notificationService.sendNotification(userData, "Transaction pipeline error");
+            }
+            System.out.println("Cached");
+        }catch(Exception e){
+            System.out.println("dlq error");
         }
-        // retrieve users transactions as a list
-        List<TransactionRequest> transactions = getTransactions(userData);
-        boolean result = pipeline.process(userData, transactions);
-        System.out.println(result + "-----------------------HANDLER RESULT");
-        if(result){
-            saveTransaction(userData, isFraud);//save transaction
-        }else{
-            notificationService.sendNotification(userData, "Transaction pipeline error");
-        }
-        System.out.println("Cached");
 
     }
 
