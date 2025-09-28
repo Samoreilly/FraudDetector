@@ -8,8 +8,10 @@ import java.time.LocalDateTime;
 public class DatabaseDTO {
 
     @Id
-    private String id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private String autoId;// unique for each DLQ entry
 
+    private String id;
     private String data;
     private LocalDateTime time;
     private String clientIp;
@@ -77,12 +79,35 @@ public class DatabaseDTO {
     public int getIsFraud() {
         return isFraud;
     }
-
+    @Override
+    public String toString() {
+        return "DatabaseDTO{" +
+                "id='" + id + '\'' +
+                ", data='" + data + '\'' +
+                ", time=" + time +
+                ", clientIp='" + clientIp + '\'' +
+                ", result='" + result + '\'' +
+                ", latitude=" + latitude +
+                ", longitude=" + longitude +
+                ", isFraud=" + isFraud +
+                '}';
+    }
     public void setIsFraud(int isFraud) {
         this.isFraud = isFraud;
     }
+    public DatabaseDTO(){
 
-    public DatabaseDTO() {}
+    }
 
 
+    public DatabaseDTO(String id, String data, LocalDateTime time, String clientIp, String result, Double latitude, Double longitude, int isFraud) {
+        this.id = id;
+        this.data = data;
+        this.time = time;
+        this.clientIp = clientIp;
+        this.result = result;
+        this.latitude = latitude;
+        this.longitude = longitude;
+        this.isFraud = isFraud;
+    }
 }
