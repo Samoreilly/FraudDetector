@@ -19,6 +19,7 @@ import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Service;
 
 import javax.swing.text.View;
+import javax.xml.crypto.Data;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.time.Duration;
@@ -99,20 +100,8 @@ public class TransactionService implements TransactionHandler {
     @KafkaListener(topics = "transactions", groupId = "in-transactions", containerFactory = "factory")
     public void transactionPipeline(@Payload TransactionRequest userData) throws Exception {
 
+        //handleNeuralTransaction.handleTransaction(userData);
 
-        DatabaseDTO deadLetterObject = new DatabaseDTO();
-        deadLetterObject.setId(userData.getId());
-        deadLetterObject.setData(userData.getData());
-        deadLetterObject.setTime(userData.getTime());
-        deadLetterObject.setClientIp(userData.getClientIp());
-        deadLetterObject.setResult(userData.getResult());
-        deadLetterObject.setLatitude(userData.getLatitude());
-        deadLetterObject.setLongitude(userData.getLongitude());
-        deadLetterObject.setIsFraud(userData.getIsFraud());
-
-        viewDeadLetterQueue.sendToQueue(deadLetterObject);
-
-//        handleNeuralTransaction.handleTransaction(userData);
         try {
 
 
@@ -146,8 +135,28 @@ public class TransactionService implements TransactionHandler {
                 notificationService.sendNotification(userData, "Transaction pipeline error");
             }
             System.out.println("Cached");
+            throw new RuntimeException("Testing");
         }catch(Exception e){
+
+            //Dead letter queue
+            DatabaseDTO deadLetterObject = new DatabaseDTO();
+            deadLetterObject.setId(userData.getId());
+            deadLetterObject.setData(userData.getData());
+            deadLetterObject.setTime(userData.getTime());
+            deadLetterObject.setClientIp(userData.getClientIp());
+            deadLetterObject.setResult(userData.getResult());
+            deadLetterObject.setLatitude(userData.getLatitude());
+            deadLetterObject.setLongitude(userData.getLongitude());
+            deadLetterObject.setIsFraud(userData.getIsFraud());
+
+            viewDeadLetterQueue.sendToQueue(deadLetterObject);
             System.out.println("dlq error");
+            List<DatabaseDTO> dlq = viewDeadLetterQueue.previewDLQ();
+            System.out.println("Printing");
+            for(DatabaseDTO dl : dlq){
+
+                System.out.println(dl);
+            }
         }
 
     }
