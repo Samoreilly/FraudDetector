@@ -6,6 +6,8 @@ import fraud.fraud.DTO.TransactionRequest;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 
 @Service
 public class ViewDeadLetterQueue{
@@ -15,8 +17,9 @@ public class ViewDeadLetterQueue{
     public ViewDeadLetterQueue(DatabaseRepo databaseRepo){
         this.databaseRepo = databaseRepo;
     }
-    public void previewDLQ(){
-        databaseRepo.findAll().forEach(System.out::println);
+
+    public List<DatabaseDTO> previewDLQ(){
+        return databaseRepo.findAll();
     }
 
     @Transactional

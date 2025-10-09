@@ -122,7 +122,7 @@ public class TransactionController {
                 .maxAge(3600)
                 .build();
         response.addHeader("Set-Cookie",cookie.toString());
-        return ResponseEntity.ok(Map.of("sessionId",sessionId));
+        return ResponseEntity.ok(Map.of("sessionId", sessionId));
 
     }
 
