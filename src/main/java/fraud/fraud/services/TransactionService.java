@@ -135,7 +135,7 @@ public class TransactionService implements TransactionHandler {
                 notificationService.sendNotification(userData, "Transaction pipeline error");
             }
             System.out.println("Cached");
-            throw new RuntimeException("Testing");
+
         }catch(Exception e){
 
             //Dead letter queue
@@ -151,10 +151,10 @@ public class TransactionService implements TransactionHandler {
 
             viewDeadLetterQueue.sendToQueue(deadLetterObject);
             System.out.println("dlq error");
-            List<DatabaseDTO> dlq = viewDeadLetterQueue.previewDLQ();
+            List<DatabaseDTO> dlq = viewDeadLetterQueue.getDLQEvents();
             System.out.println("Printing");
-            for(DatabaseDTO dl : dlq){
 
+            for(DatabaseDTO dl : dlq){
                 System.out.println(dl);
             }
         }

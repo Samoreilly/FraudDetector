@@ -18,7 +18,7 @@ public class ViewDeadLetterQueue{
         this.databaseRepo = databaseRepo;
     }
 
-    public List<DatabaseDTO> previewDLQ(){
+    public List<DatabaseDTO> getDLQEvents(){
         return databaseRepo.findAll();
     }
 
@@ -27,7 +27,5 @@ public class ViewDeadLetterQueue{
 
         databaseRepo.save(transactionRequest);
         System.out.println("SAVED" + transactionRequest);
-
-        previewDLQ();
     }
 }
