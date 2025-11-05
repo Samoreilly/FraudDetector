@@ -1,6 +1,7 @@
 package fraud.fraud.controllers;
 
 import fraud.fraud.AI.NeuralNetworkManager;
+import fraud.fraud.DTO.EncryptedRequest;
 import fraud.fraud.DTO.TransactionRequest;
 import fraud.fraud.ErrorMessages;
 import fraud.fraud.Monitoring.CustomMetricsService;
@@ -37,8 +38,9 @@ public class TransactionController {
     private final VpnValidation  vpnValidation;
     private final NotificationService  notificationService;
     private final NeuralNetworkManager  neuralNetworkManager;
+    private final DecryptData decryptData;
 
-    public TransactionController(RateLimiting rateLimiting, KafkaTemplate<String, TransactionRequest> kafkaTemplate, SetupSse setupSse, CustomMetricsService customMetricsService, TransactionSecurityCheck transactionSecurityCheck,  VpnValidation vpnValidation, NotificationService notificationService, NeuralNetworkManager neuralNetworkManager) {
+    public TransactionController(RateLimiting rateLimiting, DecryptData decryptData, KafkaTemplate<String, TransactionRequest> kafkaTemplate, SetupSse setupSse, CustomMetricsService customMetricsService, TransactionSecurityCheck transactionSecurityCheck,  VpnValidation vpnValidation, NotificationService notificationService, NeuralNetworkManager neuralNetworkManager) {
         this.rateLimiting = rateLimiting;
         this.kafkaTemplate = kafkaTemplate;
         this.setupSse = setupSse;
@@ -47,15 +49,27 @@ public class TransactionController {
         this.vpnValidation = vpnValidation;
         this.notificationService = notificationService;
         this.neuralNetworkManager = neuralNetworkManager;
+        this.decryptData= decryptData;
     }
 
 
     @PostMapping("/tr")
-    public ResponseEntity<String> transaction(@RequestBody TransactionRequest transactionInfo, HttpServletRequest request, @AuthenticationPrincipal OAuth2User principal) throws Exception {
-
+    public ResponseEntity<String> transaction(
+            @RequestBody TransactionRequest encryptedRequest,
+            HttpServletRequest request,
+            @AuthenticationPrincipal OAuth2User principal) throws Exception {
         if(principal == null){
             return ResponseEntity.status(401).body("Unauthorized");
         }
+        System.out.println(encryptedRequest.toString());
+
+        String encrypted = encryptedRequest.getData();
+
+        // decrypt directly to TransactionRequest object
+        TransactionRequest transactionInfo = decryptData.decryptToObject(encrypted, TransactionRequest.class);
+        System.out.println("Transaction endpoint - decrypted data: " + transactionInfo);
+        // set client ip if needed
+        transactionInfo.setClientIp(request.getRemoteAddr());
 
         //neuralNetworkManager.initModel();// for testing
 
@@ -64,9 +78,6 @@ public class TransactionController {
         String ip = getClientIp(request);
         String key = "rate_limit:ip" + ip;
         String sessionId = principal.getAttribute("sub");
-
-        System.out.println("LATITUDE"+transactionInfo.getLatitude());
-        System.out.println("LONGITUDE"+transactionInfo.getLongitude());
 
         logger.debug("Transaction endpoint - sessionId={}, lat={}, lon={}", sessionId, transactionInfo.getLatitude(), transactionInfo.getLongitude());
 

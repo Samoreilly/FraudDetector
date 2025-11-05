@@ -12,14 +12,19 @@ import fraud.fraud.DTO.DatabaseRepo;
 import fraud.fraud.DTO.TransactionRequest;
 import fraud.fraud.Notifications.NotificationService;
 import fraud.fraud.interfaces.TransactionHandler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.annotation.RetryableTopic;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.retrytopic.DltStrategy;
+import org.springframework.kafka.support.KafkaHeaders;
+import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Service;
 
-import javax.swing.text.View;
-import javax.xml.crypto.Data;
+
 import java.io.FileWriter;
 import java.io.IOException;
 import java.time.Duration;
@@ -47,6 +52,9 @@ public class TransactionService implements TransactionHandler {
     private final DatabaseRepo databaseRepo;
 
     LogisticRegressionTraining service = new LogisticRegressionTraining();
+    private static final Logger log = LoggerFactory.getLogger(TransactionService.class);
+
+    private static boolean test = false;
 
     public TransactionService(RedisTemplate<String, Object> redisTemplate, LogisticRegressionTraining logisticRegressionTraining, ObjectMapper objectMapper, SetupSse setupSse, KafkaTemplate<String, TransactionRequest>  kafkaTemplate, TransactionSecurityCheck transactionSecurityCheck, ValidateTransactions validateTransactions, NotificationService  notificationService, TransactionPipeline pipeline, AnomalyTraining anomalyTraining,  HandleNeuralTransaction handleNeuralTransaction, NeuralNetworkManager neuralNetworkManager, TransactionCounter transactionCounter, ViewDeadLetterQueue viewDeadLetterQueue, DatabaseRepo databaseRepo) {
         this.redisTemplate = redisTemplate;
@@ -104,7 +112,6 @@ public class TransactionService implements TransactionHandler {
 
         try {
 
-
             anomalyTraining.anomalyPipeline(userData);
 
             notificationService.sendNotification(userData, "Processing your transaction");
@@ -131,6 +138,7 @@ public class TransactionService implements TransactionHandler {
             System.out.println(result + "-----------------------HANDLER RESULT");
             if (result) {
                 saveTransaction(userData, isFraud);//save transaction
+                System.out.println("Transaction sent successfully");
             } else {
                 notificationService.sendNotification(userData, "Transaction pipeline error");
             }
@@ -157,6 +165,7 @@ public class TransactionService implements TransactionHandler {
             for(DatabaseDTO dl : dlq){
                 System.out.println(dl);
             }
+            throw e;
         }
 
     }
@@ -205,7 +214,15 @@ public class TransactionService implements TransactionHandler {
         } catch (IOException e) {
             throw new RuntimeException("Failed to append data to CSV file", e);
         }
-
-
     }
+    @RetryableTopic(
+            attempts = "3",
+            dltStrategy = DltStrategy.ALWAYS_RETRY_ON_ERROR
+    )
+    @KafkaListener(topics = "transactions-retry-0",  groupId = "in-transactions-retry", containerFactory = "factory")
+    public void retry(@Payload TransactionRequest userData, @Header(KafkaHeaders.RECEIVED_TOPIC) String topic){
+        System.out.println("----------------------------------------------------------RETRYING----------------------------------------------------------");
+        log.info("Event on main topic={}, payload={}", topic, userData);
+    }
+
 }
