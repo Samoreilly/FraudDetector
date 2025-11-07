@@ -50,13 +50,14 @@ public class TransactionService implements TransactionHandler {
     private final TransactionCounter transactionCounter;
     private final ViewDeadLetterQueue  viewDeadLetterQueue;
     private final DatabaseRepo databaseRepo;
+    private final RedisEncryptionService redisEncryptionService;
 
     LogisticRegressionTraining service = new LogisticRegressionTraining();
     private static final Logger log = LoggerFactory.getLogger(TransactionService.class);
 
     private static boolean test = false;
 
-    public TransactionService(RedisTemplate<String, Object> redisTemplate, LogisticRegressionTraining logisticRegressionTraining, ObjectMapper objectMapper, SetupSse setupSse, KafkaTemplate<String, TransactionRequest>  kafkaTemplate, TransactionSecurityCheck transactionSecurityCheck, ValidateTransactions validateTransactions, NotificationService  notificationService, TransactionPipeline pipeline, AnomalyTraining anomalyTraining,  HandleNeuralTransaction handleNeuralTransaction, NeuralNetworkManager neuralNetworkManager, TransactionCounter transactionCounter, ViewDeadLetterQueue viewDeadLetterQueue, DatabaseRepo databaseRepo) {
+    public TransactionService(RedisTemplate<String, Object> redisTemplate, LogisticRegressionTraining logisticRegressionTraining, ObjectMapper objectMapper, SetupSse setupSse, KafkaTemplate<String, TransactionRequest>  kafkaTemplate, TransactionSecurityCheck transactionSecurityCheck, ValidateTransactions validateTransactions, NotificationService  notificationService, TransactionPipeline pipeline, AnomalyTraining anomalyTraining,  HandleNeuralTransaction handleNeuralTransaction, NeuralNetworkManager neuralNetworkManager, TransactionCounter transactionCounter, ViewDeadLetterQueue viewDeadLetterQueue, DatabaseRepo databaseRepo, RedisEncryptionService redisEncryptionService) {
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
         this.setupSse = setupSse;
@@ -72,6 +73,7 @@ public class TransactionService implements TransactionHandler {
         this.transactionCounter = transactionCounter;
         this.viewDeadLetterQueue = viewDeadLetterQueue;
         this.databaseRepo = databaseRepo;
+        this.redisEncryptionService = redisEncryptionService;
     }
 
 
@@ -91,10 +93,16 @@ public class TransactionService implements TransactionHandler {
         List<TransactionRequest> tx = new ArrayList<>();
 
         for(Object obj : transactions){
-            TransactionRequest trans = objectMapper.convertValue(obj, TransactionRequest.class);
-
+            TransactionRequest trans;
+            // Check if data is encrypted or plain object
+            if (obj instanceof String) {
+                
+                trans = redisEncryptionService.decryptFromRedis((String) obj);
+            } else {
+                // conver to transaction request object
+                trans = objectMapper.convertValue(obj, TransactionRequest.class);
+            }
             tx.add(trans);
-
         }
         System.out.println("777 " + transactions);
         for (TransactionRequest transaction : tx) {
@@ -171,8 +179,16 @@ public class TransactionService implements TransactionHandler {
     }
 
     public void saveTransaction(TransactionRequest userData, boolean isFraud){
-        redisTemplate.opsForList().leftPush(userData.getId(), userData);
-        notificationService.sendNotification(userData, "Caching your transaction");
+        try {
+            // encrypt transaction before storing in Redis
+            String encryptedData = redisEncryptionService.encryptForRedis(userData);
+            redisTemplate.opsForList().leftPush(userData.getId(), encryptedData);
+            notificationService.sendNotification(userData, "Caching your encrypted transaction");
+        } catch (Exception e) {
+            log.error("Failed to encrypt transaction for Redis storage", e);
+            redisTemplate.opsForList().leftPush(userData.getId(), userData);
+            notificationService.sendNotification(userData, "Caching your transaction");
+        }
 
         try {
             boolean res = transactionCounter.counter(userData);

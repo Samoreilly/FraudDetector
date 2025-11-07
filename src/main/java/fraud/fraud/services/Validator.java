@@ -3,6 +3,7 @@ package fraud.fraud.services;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import fraud.fraud.DTO.TransactionRequest;
 import fraud.fraud.Notifications.NotificationService;
+import fraud.fraud.services.RedisEncryptionService;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
@@ -19,13 +20,15 @@ public class Validator{
     private final RedisTemplate<String, Object> redisTemplate;
     private final ValidateTransactions validateTransactions;
     private final NotificationService notificationService;
+    private final RedisEncryptionService redisEncryptionService;
 
-    public Validator(RedisTemplate<String, Object> redisTemplate, ObjectMapper objectMapper, KafkaTemplate<String,  TransactionRequest> kafkaTemplate, ValidateTransactions validateTransactions, NotificationService notificationService) {
+    public Validator(RedisTemplate<String, Object> redisTemplate, ObjectMapper objectMapper, KafkaTemplate<String,  TransactionRequest> kafkaTemplate, ValidateTransactions validateTransactions, NotificationService notificationService, RedisEncryptionService redisEncryptionService) {
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
         this.kafkaTemplate = kafkaTemplate;
         this.validateTransactions = validateTransactions;
         this.notificationService = notificationService;
+        this.redisEncryptionService = redisEncryptionService;
     }
     public boolean checkTimestamps(TransactionRequest userData, List<TransactionRequest> validateTimes){ // restructered - moved from TransactionService.java to get away from 1 god class(transaction service)
         notificationService.sendNotification(userData, "Validating your transaction for potential fraud");
@@ -35,14 +38,19 @@ public class Validator{
         Duration duration = Duration.between(validateTimes.getFirst().getTime(),userData.getTime());
         return duration.getSeconds() >= 0;
     }
-    public boolean checkTransactionByLocation(TransactionRequest userData){                             //...
+    public boolean checkTransactionByLocation(TransactionRequest userData) throws Exception {                             //...
         Object transaction = redisTemplate.opsForList().getFirst(userData.getId());
         if(transaction == null){
 
             return false;
         }
         notificationService.sendNotification(userData, "Validating latitude and longitude");
-        TransactionRequest trans = objectMapper.convertValue(transaction, TransactionRequest.class);
+        TransactionRequest trans;
+        if (transaction instanceof String) {
+            trans = redisEncryptionService.decryptFromRedis((String) transaction);
+        } else {
+            trans = objectMapper.convertValue(transaction, TransactionRequest.class);
+        }
 
         Double prevLatitude = trans.getLatitude();
         Double prevLongitude = trans.getLongitude();

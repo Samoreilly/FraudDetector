@@ -16,6 +16,14 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 import java.time.Duration;
 
+
+    /*
+     *  ADDED ENCRYPTION SERVICE TO REDIS CONFIGURATION
+     *  any data that is now stored in redis is encrypted
+     * this is important because the data is sensitive
+     *  and it should not be in plain text
+     */
+
 @Configuration
 public class RedisConfiguration {
 

@@ -3,6 +3,7 @@ package fraud.fraud.services;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import fraud.fraud.DTO.TransactionRequest;
 import fraud.fraud.Notifications.NotificationService;
+import fraud.fraud.services.RedisEncryptionService;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
@@ -15,13 +16,16 @@ public class ValidateTransactions {
     private final KafkaTemplate<String, TransactionRequest> kafkaTemplate;
     private final RedisTemplate<String, Object> redisTemplate;
     private final NotificationService notificationService;
+    private final RedisEncryptionService redisEncryptionService;
 
-    public ValidateTransactions(RedisTemplate<String, Object> redisTemplate, ObjectMapper objectMapper, KafkaTemplate<String,  TransactionRequest> kafkaTemplate, NotificationService notificationService) {
+    public ValidateTransactions(RedisTemplate<String, Object> redisTemplate, ObjectMapper objectMapper, KafkaTemplate<String,  TransactionRequest> kafkaTemplate, NotificationService notificationService, RedisEncryptionService redisEncryptionService) {
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
         this.kafkaTemplate = kafkaTemplate;
         this.notificationService = notificationService;
+        this.redisEncryptionService = redisEncryptionService;
     }
+
 
     public Double averageTransaction(TransactionRequest transactionRequest) throws Exception {
 
@@ -33,7 +37,14 @@ public class ValidateTransactions {
 
         for(Object transaction : transactions) {
             try {
-                TransactionRequest tr = objectMapper.convertValue(transaction, TransactionRequest.class);
+                TransactionRequest tr;
+                // Check if data is encrypted or of type TransactionRequest
+                if (transaction instanceof String) {
+                    tr = redisEncryptionService.decryptFromRedis((String) transaction);
+                } else {
+                    //convert to transaction request object
+                    tr = objectMapper.convertValue(transaction, TransactionRequest.class);
+                }
                 val += Integer.parseInt(tr.getData());
                 total++;
             }catch(NumberFormatException e) {

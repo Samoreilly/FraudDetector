@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import fraud.fraud.DTO.TransactionRequest;
 import fraud.fraud.Notifications.NotificationService;
 import fraud.fraud.interfaces.Handler;
+import fraud.fraud.services.RedisEncryptionService;
 import fraud.fraud.services.ValidateTransactions;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.nd4j.linalg.api.ndarray.INDArray;
@@ -24,9 +25,10 @@ public class HandleNeuralTransaction implements Handler {
     private final RedisTemplate<String, Object> redisTemplate;
     private final ObjectMapper objectMapper;
     private final NotificationService  notificationService;
+    private final RedisEncryptionService redisEncryptionService;
     private  Handler next;
 
-    public HandleNeuralTransaction(NeuralNetworkManager neuralNetworkManager, ValidateTransactions  validateTransactions, RedisTemplate<String, Object> redisTemplate, ObjectMapper objectMapper,  NotificationService notificationService) {
+    public HandleNeuralTransaction(NeuralNetworkManager neuralNetworkManager, ValidateTransactions  validateTransactions, RedisTemplate<String, Object> redisTemplate, ObjectMapper objectMapper,  NotificationService notificationService, RedisEncryptionService redisEncryptionService) {
         this.neuralNetworkManager = neuralNetworkManager;
         this.network = neuralNetworkManager.getNetwork();
         this.normalizer = neuralNetworkManager.getNormalizer();
@@ -34,6 +36,7 @@ public class HandleNeuralTransaction implements Handler {
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
         this.notificationService = notificationService;
+        this.redisEncryptionService = redisEncryptionService;
     }
     @Override //ignore validateTimes as it a necessary paramater in the chain of responsibility design pattern
     public boolean handle(TransactionRequest userData, List<TransactionRequest> validateTimes) throws Exception {
@@ -49,7 +52,12 @@ public class HandleNeuralTransaction implements Handler {
         if(transaction == null){
             notificationService.sendNotification(userData, "Transaction not found");
         }
-        TransactionRequest trans = objectMapper.convertValue(transaction, TransactionRequest.class);
+        TransactionRequest trans;
+        if (transaction instanceof String) {
+            trans = redisEncryptionService.decryptFromRedis((String) transaction);
+        } else {
+            trans = objectMapper.convertValue(transaction, TransactionRequest.class);
+        }
 
         Double prevLatitude = trans.getLatitude();// get users previous transaction latitude and longitude
         Double prevLongitude = trans.getLongitude();
